@@ -14,14 +14,23 @@ class MarkdownParser {
 
     const lines = markdownText.split('\n');
     const hierarchyStack = []; // 存储层次结构栈
-    let currentParent = null;
+    let lastHeaderLevel = -1; // 记录最后一个标题的层级
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
 
-      const level = this.getMarkdownLevel(line);
+      let level = this.getMarkdownLevel(line);
       if (level === -1) continue;
+
+      // 如果是列表项，需要相对于最近的标题层级计算
+      const isListItem = line.match(/^(\s*)-\s/);
+      if (isListItem && lastHeaderLevel >= 0) {
+        const indentLevel = Math.floor(isListItem[1].length / 2);
+        level = lastHeaderLevel + 1 + indentLevel; // 相对于最近标题的层级
+      } else if (!isListItem) {
+        lastHeaderLevel = level; // 更新最近的标题层级
+      }
 
       const content = this.extractContent(line);
       if (!content) continue;
@@ -35,14 +44,22 @@ class MarkdownParser {
       const node = this.createNode(content, level, hierarchyStack);
       this.nodes.push(node);
 
-      // 创建与父节点的连接
-      if (hierarchyStack.length > 0) {
+      // 创建与直接父节点的连接
+      if (level > 0 && hierarchyStack.length > 0) {
         const parentNode = hierarchyStack[hierarchyStack.length - 1];
-        const edge = this.createEdge(node.id, parentNode.id, level);
-        this.edges.push(edge);
+        if (parentNode && parentNode.id) {
+          const edge = this.createEdge(parentNode.id, node.id, level);
+          this.edges.push(edge);
+        }
       }
 
-      // 更新层次栈
+      // 正确更新层次栈：确保当前节点放在正确的层级位置
+      if (hierarchyStack.length <= level) {
+        // 如果栈长度不够，先填充空位
+        while (hierarchyStack.length <= level) {
+          hierarchyStack.push(null);
+        }
+      }
       hierarchyStack[level] = node;
     }
 
@@ -74,7 +91,10 @@ class MarkdownParser {
     // 提取标题内容
     const headerMatch = line.match(/^#{1,6}\s+(.+)/);
     if (headerMatch) {
-      return headerMatch[1].trim();
+      let content = headerMatch[1].trim();
+      // 清理编号前缀 (如 "1. DAU" -> "DAU", "1.1.1 分端-ET" -> "分端-ET")
+      content = content.replace(/^\d+(\.\d+)*\.?\s*/, '');
+      return content;
     }
 
     // 提取列表项内容
@@ -88,7 +108,28 @@ class MarkdownParser {
 
   // 创建节点
   createNode(content, level, hierarchyStack) {
-    const id = content;
+    // 确保节点ID唯一，如果重复则添加路径前缀
+    let id = content;
+    const existingNode = this.nodes.find(n => n.id === id);
+    if (existingNode) {
+      // 基于层次栈构建唯一路径
+      const pathParts = hierarchyStack.filter(n => n && n.id).map(n => n.id);
+      if (pathParts.length > 0) {
+        id = `${pathParts[pathParts.length - 1]}-${content}`;
+      } else {
+        // 如果没有父节点，用层级前缀
+        id = `L${level}-${content}`;
+      }
+      
+      // 如果还是重复，添加计数器
+      let counter = 1;
+      let finalId = id;
+      while (this.nodes.find(n => n.id === finalId)) {
+        finalId = `${id}-${counter}`;
+        counter++;
+      }
+      id = finalId;
+    }
     const nodeType = this.determineNodeType(content, level);
     const category = this.determineCategory(content, level, hierarchyStack);
     const domain = this.determineDomain(content, level, hierarchyStack);

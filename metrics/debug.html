@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug API</title>
+</head>
+<body>
+    <h1>API Debug</h1>
+    <div id="result"></div>
+    
+    <script>
+    async function testAPI() {
+        try {
+            console.log('测试API连接...');
+            const response = await fetch('http://localhost:3001/api/graph-data');
+            console.log('Response status:', response.status);
+            
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+            
+            const data = await response.json();
+            console.log('数据获取成功:');
+            console.log('节点数:', data.nodes?.length || 0);
+            console.log('边数:', data.edges?.length || 0);
+            console.log('前3个节点:', data.nodes?.slice(0, 3));
+            
+            document.getElementById('result').innerHTML = `
+                <p>节点数: ${data.nodes?.length || 0}</p>
+                <p>边数: ${data.edges?.length || 0}</p>
+                <p>数据结构正常: ${data.nodes && data.edges ? '是' : '否'}</p>
+                <pre>${JSON.stringify(data.nodes?.slice(0, 2), null, 2)}</pre>
+            `;
+            
+        } catch (error) {
+            console.error('API测试失败:', error);
+            document.getElementById('result').innerHTML = `
+                <p style="color: red">错误: ${error.message}</p>
+            `;
+        }
+    }
+    
+    testAPI();
+    </script>
+</body>
+</html>

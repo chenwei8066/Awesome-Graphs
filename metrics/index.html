@@ -33,6 +33,7 @@
     <div id="search-list"></div>
     <div id="live-alert"></div>
     <div id="node-detail"></div>
+    <div id="loading-status" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 18px; z-index: 1000;">加载中...</div>
     <div id="network"></div>
 
     <div class="legend">
@@ -232,7 +233,9 @@
       let graph;
 
       const buildGraph = async (graphData) => {
+        console.log('构建图谱，输入数据:', graphData);
         const data = transformData(graphData);
+        console.log('转换后数据:', data);
         graph = new G6.Graph({
           container: 'network',
           data: data,
@@ -290,7 +293,10 @@
 
         await document.fonts.ready;
         await graph.render();
-        setTimeout(() => graph.render(), 16);
+        setTimeout(() => {
+          graph.render();
+          document.getElementById('loading-status').style.display = 'none';
+        }, 16);
         return graph;
       };
 
@@ -320,6 +326,7 @@
           };
         } else {
           console.log('成功从Markdown解析API加载数据');
+          console.log('节点数:', graphData.nodes?.length, '边数:', graphData.edges?.length);
         }
 
         // 如果已有图实例，销毁后重建
