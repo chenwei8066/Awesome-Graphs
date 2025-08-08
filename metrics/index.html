@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>公司经营指标图谱</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://at.alicdn.com/t/a/font_470089_8hnbbf8n4u8.css" />
+    <style>
+      html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+      #network { width: 100%; height: 100%; }
+      .search-bar { position: absolute; top: 24px; left: 12px; z-index: 2; width: 360px; font-size: 14px; box-shadow: 0 0 8px rgba(0,0,0,0.1); border-radius: 8px; background-color: #fff; }
+      #searchInput, #searchButton { font-size: 14px; }
+      #search-list { position: absolute; top: 72px; left: 12px; z-index: 999; width: 360px; background-color: #fff; display: none; font-size: 14px; text-align: left; max-height: 480px; overflow-y: auto; padding: 8px 12px; border: 1px solid #eee; border-radius: 6px; }
+      .alert-message { font-size: 14px; width: 360px; height: fit-content; top: 72px; left: 12px; line-height: 24px; padding: 6px 0 6px 12px; position: absolute; z-index: 1; }
+      .btn-close:focus { box-shadow: none; }
+      #node-detail { left: 50%; width: max-content; top: 20px; transform: translateX(-50%); position: absolute; border: 0; border-radius: 8px; background-color: rgba(255,255,255,0.9); padding: 10px 12px; z-index: 1000; text-align: left; box-shadow: 0 2px 12px rgba(0,0,0,0.12); }
+      .g6-toolbar { background: #fff; border-radius: 8px !important; bottom: 50% !important; flex-direction: column !important; gap: 4px; left: 12px !important; opacity: 1 !important; padding: 4px !important; }
+      .g6-toolbar-item { display: flex !important; }
+      .metric-line { font-size: 12px; color: #111; }
+      .metric-line .k { color: #6b7280; margin-right: 4px; }
+      .metric-line .v { font-weight: 600; }
+      .legend { position: absolute; right: 12px; top: 12px; z-index: 2; background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 8px 10px; font-size: 12px; }
+      .legend .item { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+      .legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    </style>
+  </head>
+  <body>
+    <div class="input-group mb-3 search-bar">
+      <input type="text" id="searchInput" class="form-control" placeholder="搜索指标/目标/输入，如 GMV、订单数" aria-describedby="searchButton" />
+      <button id="searchButton" class="btn btn-outline-secondary" type="button">Search</button>
+    </div>
+    <div id="search-list"></div>
+    <div id="live-alert"></div>
+    <div id="node-detail"></div>
+    <div id="network"></div>
+
+    <div class="legend">
+      <div class="item"><span class="dot" style="background:#22c55e"></span><span>达标（Good）</span></div>
+      <div class="item"><span class="dot" style="background:#f59e0b"></span><span>预警（Warn）</span></div>
+      <div class="item"><span class="dot" style="background:#ef4444"></span><span>异常（Bad）</span></div>
+      <div class="item"><span class="dot" style="background:#60a5fa"></span><span>无目标/中性（Neutral）</span></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/fuzzy@0.1.3/lib/fuzzy.js"></script>
+    <script src="https://unpkg.com/@antv/g6@5/dist/g6.min.js"></script>
+    <script type="module">
+      const BG_COLOR = '#FFF';
+      const GOOD = '#22c55e';
+      const WARN = '#f59e0b';
+      const BAD = '#ef4444';
+      const NEUTRAL = '#60a5fa';
+      const UNI_EDGE = '#94a3b8';
+      const ROLLUP_EDGE = '#6366f1';
+      const INFLU_EDGE = '#0891b2';
+
+      // 默认样例数据（在无法从 JSON 加载时使用）
+      const defaultNodes = [
+        { id: 'GMV', _type: 'metric', _domain: '公司', _value: 12.3, _unit: '亿', _trend: 'up', _target: 12.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 1, _owner: '财务' },
+        { id: '净利', _type: 'metric', _domain: '公司', _value: 4.0, _unit: '亿', _target: 4.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 1 },
+        { id: '收入', _type: 'metric', _domain: '财务', _value: 20.0, _unit: '亿', _target: 19.0, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.8 },
+        { id: '成本', _type: 'metric', _domain: '财务', _value: 16.0, _unit: '亿', _target: 15.0, _threshold: { good: 1.0, warn: 0.97, bad: 0.9 }, _better: 'lower', _weight: 0.8 },
+
+        { id: '订单数', _type: 'metric', _domain: '交易', _value: 3200, _unit: '万', _trend: 'down', _target: 3300, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.7 },
+        { id: 'AOV', _type: 'metric', _domain: '交易', _value: 385, _unit: '元', _trend: 'up', _target: 380, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.6 },
+        { id: '件单价', _type: 'metric', _domain: '交易', _value: 160, _unit: '元', _target: 155, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.3 },
+        { id: '件单量', _type: 'metric', _domain: '交易', _value: 2.4, _unit: '件/单', _target: 2.45, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.3 },
+        { id: '连带率', _type: 'metric', _domain: '交易', _value: 1.35, _unit: '', _target: 1.38, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.2 },
+
+        { id: '访客数UV', _type: 'metric', _domain: '增长', _value: 9800, _unit: '万', _trend: 'flat', _target: 10000, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.6 },
+        { id: '自然UV', _type: 'metric', _domain: '增长', _value: 6400, _unit: '万', _target: 6500, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.4 },
+        { id: '付费UV', _type: 'metric', _domain: '增长', _value: 3400, _unit: '万', _target: 3500, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.4 },
+        { id: '曝光', _type: 'metric', _domain: '增长', _value: 6.5, _unit: '亿', _target: 6.2, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.3 },
+        { id: 'CTR', _type: 'metric', _domain: '增长', _value: 2.6, _unit: '%', _target: 2.7, _threshold: { good: 1.0, warn: 0.96, bad: 0 }, _weight: 0.3 },
+        { id: 'DAU', _type: 'metric', _domain: '增长', _value: 1200, _unit: '万', _target: 1250, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.3 },
+        { id: '投放预算金额', _type: 'metric', _domain: '增长', _value: 2.1, _unit: '亿', _target: 2.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _better: 'lower', _weight: 0.2 },
+        { id: '品牌搜索指数', _type: 'metric', _domain: '品牌', _value: 89, _unit: '', _target: 90, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
+        { id: '声量SOV', _type: 'metric', _domain: '品牌', _value: 24, _unit: '%', _target: 25, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
+
+        { id: '整体CVR', _type: 'metric', _domain: '增长', _value: 2.8, _unit: '%', _trend: 'down', _target: 3.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.6 },
+        { id: '落地页到达率', _type: 'metric', _domain: '增长', _value: 68.0, _unit: '%', _target: 70.0, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.3 },
+        { id: '跳失率', _type: 'metric', _domain: '增长', _value: 38.0, _unit: '%', _target: 35.0, _threshold: { good: 1.0, warn: 0.97, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
+        { id: 'PDP转化', _type: 'metric', _domain: '增长', _value: 8.0, _unit: '%', _target: 9.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.4 },
+        { id: '加购率', _type: 'metric', _domain: '增长', _value: 21.0, _unit: '%', _target: 22.0, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.3 },
+        { id: '加购转化', _type: 'metric', _domain: '增长', _value: 35.0, _unit: '%', _target: 36.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.3 },
+        { id: '支付转化', _type: 'metric', _domain: '交易', _value: 85.0, _unit: '%', _target: 88.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.4 },
+        { id: '支付成功率', _type: 'metric', _domain: '交易', _value: 98.5, _unit: '%', _target: 99.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.3 },
+        { id: '复购率', _type: 'metric', _domain: '用户', _value: 30.0, _unit: '%', _target: 32.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.3 },
+        { id: '退款率', _type: 'metric', _domain: '交易', _value: 5.2, _unit: '%', _target: 4.5, _threshold: { good: 1.0, warn: 0.97, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
+        { id: '售后申请率', _type: 'metric', _domain: '交易', _value: 7.5, _unit: '%', _target: 7.0, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
+
+        { id: '在架SKU', _type: 'metric', _domain: '商品', _value: 1200, _unit: '万', _target: 1250, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.3 },
+        { id: '有效SKU', _type: 'metric', _domain: '商品', _value: 820, _unit: '万', _target: 850, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.3 },
+        { id: '动销率', _type: 'metric', _domain: '商品', _value: 68.0, _unit: '%', _target: 70.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
+        { id: '断货率', _type: 'metric', _domain: '商品', _value: 6.0, _unit: '%', _target: 5.0, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
+        { id: '商品评分', _type: 'metric', _domain: '商品', _value: 4.6, _unit: '/5', _target: 4.7, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
+        { id: '详情完读率', _type: 'metric', _domain: '商品', _value: 52.0, _unit: '%', _target: 55.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
+
+        { id: '价格指数', _type: 'metric', _domain: '价格', _value: 0.96, _unit: 'vs竞品', _target: 0.95, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
+        { id: '比价胜率', _type: 'metric', _domain: '价格', _value: 62.0, _unit: '%', _target: 65.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
+        { id: '促销参与率', _type: 'metric', _domain: '价格', _value: 28.0, _unit: '%', _target: 30.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
+        { id: '券领取率', _type: 'metric', _domain: '价格', _value: 35.0, _unit: '%', _target: 36.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
+        { id: '券使用率', _type: 'metric', _domain: '价格', _value: 72.0, _unit: '%', _target: 73.0, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
+
+        { id: '总库存', _type: 'metric', _domain: '供应链', _value: 3.2, _unit: '亿件', _target: 3.0, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.2 },
+        { id: '有效库存', _type: 'metric', _domain: '供应链', _value: 2.6, _unit: '亿件', _target: 2.7, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
+        { id: '可售天数', _type: 'metric', _domain: '供应链', _value: 21, _unit: '天', _target: 23, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
+        { id: '库存周转天数', _type: 'metric', _domain: '供应链', _value: 35, _unit: '天', _target: 33, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
+        { id: '预测准确率', _type: 'metric', _domain: '供应链', _value: 78.0, _unit: '%', _target: 80.0, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
+        { id: '补货及时率', _type: 'metric', _domain: '供应链', _value: 88.0, _unit: '%', _target: 90.0, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
+
+        { id: '发货时效', _type: 'metric', _domain: '物流', _value: 0.9, _unit: '天', _target: 0.8, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
+        { id: '揽收时效', _type: 'metric', _domain: '物流', _value: 0.7, _unit: '天', _target: 0.6, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
+        { id: '干线时效', _type: 'metric', _domain: '物流', _value: 1.1, _unit: '天', _target: 1.0, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
+        { id: '派送时效', _type: 'metric', _domain: '物流', _value: 0.8, _unit: '天', _target: 0.7, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
+        { id: '准时达率', _type: 'metric', _domain: '物流', _value: 96.0, _unit: '%', _target: 95.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.3 },
+        { id: '破损率', _type: 'metric', _domain: '物流', _value: 0.6, _unit: '%', _target: 0.5, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
+        { id: '丢件率', _type: 'metric', _domain: '物流', _value: 0.12, _unit: '%', _target: 0.1, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
+
+        { id: '活跃商家数', _type: 'metric', _domain: '商家', _value: 32, _unit: '万', _target: 33, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
+        { id: '商家履约SLA达成率', _type: 'metric', _domain: '商家', _value: 92.0, _unit: '%', _target: 94.0, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
+        { id: '商家违规率', _type: 'metric', _domain: '商家', _value: 0.8, _unit: '%', _target: 0.7, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
+
+        { id: '首响时间', _type: 'metric', _domain: '客服', _value: 28, _unit: '秒', _target: 25, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
+        { id: '一次解决率FCR', _type: 'metric', _domain: '客服', _value: 84.0, _unit: '%', _target: 86.0, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
+        { id: '投诉率', _type: 'metric', _domain: '客服', _value: 0.9, _unit: '%', _target: 0.8, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
+        { id: 'CSAT', _type: 'metric', _domain: '客服', _value: 4.5, _unit: '/5', _target: 4.6, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
+        { id: 'NPS', _type: 'metric', _domain: '客服', _value: 38, _unit: '', _target: 40, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
+
+        { id: '拦截率', _type: 'metric', _domain: '风控', _value: 1.8, _unit: '%', _target: 1.6, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
+        { id: '误杀率', _type: 'metric', _domain: '风控', _value: 0.12, _unit: '%', _target: 0.1, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
+        { id: '拒付率', _type: 'metric', _domain: '风控', _value: 0.08, _unit: '%', _target: 0.07, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
+
+        { id: '可用率', _type: 'metric', _domain: '技术', _value: 99.92, _unit: '%', _target: 99.95, _threshold: { good: 1.0, warn: 0.999, bad: 0 }, _weight: 0.3 },
+        { id: '下单接口TP99', _type: 'metric', _domain: '技术', _value: 480, _unit: 'ms', _target: 450, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
+        { id: '白屏率', _type: 'metric', _domain: '技术', _value: 0.35, _unit: '%', _target: 0.3, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
+        { id: '崩溃率', _type: 'metric', _domain: '技术', _value: 0.22, _unit: '%', _target: 0.2, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
+
+        { id: '交易佣金金额', _type: 'metric', _domain: '财务', _value: 8.4, _unit: '亿', _target: 8.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.3 },
+        { id: '平台佣金率', _type: 'metric', _domain: '财务', _value: 6.8, _unit: '%', _target: 6.7, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
+        { id: '广告收入金额', _type: 'metric', _domain: '财务', _value: 4.2, _unit: '亿', _target: 4.1, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.3 },
+        { id: '服务费金额', _type: 'metric', _domain: '财务', _value: 3.6, _unit: '亿', _target: 3.5, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
+        { id: '物流收入金额', _type: 'metric', _domain: '财务', _value: 3.8, _unit: '亿', _target: 3.7, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
+
+        { id: '营销成本金额', _type: 'metric', _domain: '财务', _value: 3.2, _unit: '亿', _target: 3.0, _threshold: { good: 1.0, warn: 0.97, bad: 0.9 }, _better: 'lower', _weight: 0.3 },
+        { id: '履约成本金额', _type: 'metric', _domain: '财务', _value: 4.5, _unit: '亿', _target: 4.3, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.3 },
+        { id: '仓储成本金额', _type: 'metric', _domain: '财务', _value: 2.1, _unit: '亿', _target: 2.0, _threshold: { good: 1.0, warn: 0.99, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
+        { id: '客服成本金额', _type: 'metric', _domain: '财务', _value: 0.9, _unit: '亿', _target: 0.85, _threshold: { good: 1.0, warn: 0.99, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
+        { id: '技术成本金额', _type: 'metric', _domain: '财务', _value: 1.1, _unit: '亿', _target: 1.0, _threshold: { good: 1.0, warn: 0.99, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
+        { id: '补贴成本金额', _type: 'metric', _domain: '财务', _value: 2.2, _unit: '亿', _target: 2.0, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 }
+      ];
+      const defaultEdges = [
+        { from: '订单数', to: 'GMV', _type: 'rollup', _impact: 0.6 },
+        { from: 'AOV', to: 'GMV', _type: 'rollup', _impact: 0.4 },
+
+        { from: '访客数UV', to: '订单数', _type: 'depends', _impact: 0.5 },
+        { from: '整体CVR', to: '订单数', _type: 'depends', _impact: 0.5 },
+
+        { from: '自然UV', to: '访客数UV', _type: 'rollup', _impact: 0.6 },
+        { from: '付费UV', to: '访客数UV', _type: 'rollup', _impact: 0.4 },
+        { from: '曝光', to: '自然UV', _type: 'influences', _impact: 0.4 },
+        { from: 'CTR', to: '自然UV', _type: 'influences', _impact: 0.6 },
+        { from: '投放预算金额', to: '付费UV', _type: 'influences', _impact: 0.7 },
+        { from: '品牌搜索指数', to: '自然UV', _type: 'influences', _impact: 0.4 },
+        { from: '声量SOV', to: '品牌搜索指数', _type: 'influences', _impact: 0.5 },
+
+        { from: '落地页到达率', to: '整体CVR', _type: 'depends', _impact: 0.2 },
+        { from: '跳失率', to: '整体CVR', _type: 'influences', _impact: 0.15 },
+        { from: 'PDP转化', to: '整体CVR', _type: 'depends', _impact: 0.32 },
+        { from: '加购率', to: '整体CVR', _type: 'depends', _impact: 0.18 },
+        { from: '加购转化', to: '整体CVR', _type: 'depends', _impact: 0.15 },
+        { from: '支付转化', to: '整体CVR', _type: 'depends', _impact: 0.2 },
+        { from: '支付成功率', to: '支付转化', _type: 'depends', _impact: 0.6 },
+        { from: '退款率', to: '整体CVR', _type: 'influences', _impact: 0.08 },
+        { from: '售后申请率', to: '退款率', _type: 'influences', _impact: 0.5 },
+
+        { from: '件单价', to: 'AOV', _type: 'rollup', _impact: 0.5 },
+        { from: '件单量', to: 'AOV', _type: 'rollup', _impact: 0.5 },
+        { from: '连带率', to: '件单量', _type: 'influences', _impact: 0.5 },
+        { from: '券使用率', to: '件单量', _type: 'influences', _impact: 0.3 },
+        { from: '券领取率', to: '券使用率', _type: 'influences', _impact: 0.5 },
+        { from: '促销参与率', to: '券领取率', _type: 'influences', _impact: 0.5 },
+        { from: '价格指数', to: 'PDP转化', _type: 'influences', _impact: 0.4 },
+        { from: '比价胜率', to: 'PDP转化', _type: 'influences', _impact: 0.3 },
+
+        { from: '在架SKU', to: '有效SKU', _type: 'influences', _impact: 0.3 },
+        { from: '有效SKU', to: 'PDP转化', _type: 'influences', _impact: 0.2 },
+        { from: '动销率', to: '有效SKU', _type: 'influences', _impact: 0.3 },
+        { from: '断货率', to: '加购率', _type: 'influences', _impact: 0.2 },
+        { from: '商品评分', to: 'PDP转化', _type: 'influences', _impact: 0.2 },
+        { from: '详情完读率', to: 'PDP转化', _type: 'influences', _impact: 0.2 },
+
+        { from: '总库存', to: '断货率', _type: 'influences', _impact: 0.2 },
+        { from: '有效库存', to: '断货率', _type: 'influences', _impact: 0.4 },
+        { from: '可售天数', to: '断货率', _type: 'influences', _impact: 0.2 },
+        { from: '库存周转天数', to: '价格指数', _type: 'influences', _impact: 0.1 },
+        { from: '预测准确率', to: '断货率', _type: 'influences', _impact: 0.2 },
+        { from: '补货及时率', to: '断货率', _type: 'influences', _impact: 0.2 },
+
+        { from: '发货时效', to: '准时达率', _type: 'influences', _impact: 0.3 },
+        { from: '揽收时效', to: '准时达率', _type: 'influences', _impact: 0.2 },
+        { from: '干线时效', to: '准时达率', _type: 'influences', _impact: 0.25 },
+        { from: '派送时效', to: '准时达率', _type: 'influences', _impact: 0.25 },
+        { from: '破损率', to: '售后申请率', _type: 'influences', _impact: 0.3 },
+        { from: '丢件率', to: '售后申请率', _type: 'influences', _impact: 0.3 },
+        { from: '准时达率', to: '复购率', _type: 'influences', _impact: 0.3 },
+        { from: '复购率', to: '整体CVR', _type: 'influences', _impact: 0.2 },
+
+        { from: '活跃商家数', to: '在架SKU', _type: 'influences', _impact: 0.3 },
+        { from: '商家履约SLA达成率', to: '准时达率', _type: 'influences', _impact: 0.2 },
+        { from: '商家违规率', to: '退款率', _type: 'influences', _impact: 0.1 },
+
+        { from: '一次解决率FCR', to: 'CSAT', _type: 'influences', _impact: 0.4 },
+        { from: '首响时间', to: 'CSAT', _type: 'influences', _impact: 0.3 },
+        { from: '投诉率', to: 'CSAT', _type: 'influences', _impact: 0.3 },
+        { from: 'CSAT', to: '复购率', _type: 'influences', _impact: 0.2 },
+        { from: 'NPS', to: '品牌搜索指数', _type: 'influences', _impact: 0.2 },
+
+        { from: '拦截率', to: '支付成功率', _type: 'influences', _impact: 0.2 },
+        { from: '误杀率', to: '支付成功率', _type: 'influences', _impact: 0.2 },
+        { from: '拒付率', to: '支付成功率', _type: 'influences', _impact: 0.2 },
+
+        { from: '可用率', to: '下单接口TP99', _type: 'influences', _impact: 0.2 },
+        { from: '白屏率', to: '跳失率', _type: 'influences', _impact: 0.2 },
+        { from: '崩溃率', to: '跳失率', _type: 'influences', _impact: 0.2 },
+
+        { from: '交易佣金金额', to: '收入', _type: 'rollup', _impact: 0.35 },
+        { from: '平台佣金率', to: '交易佣金金额', _type: 'influences', _impact: 0.5 },
+        { from: '广告收入金额', to: '收入', _type: 'rollup', _impact: 0.2 },
+        { from: '服务费金额', to: '收入', _type: 'rollup', _impact: 0.2 },
+        { from: '物流收入金额', to: '收入', _type: 'rollup', _impact: 0.25 },
+
+        { from: '营销成本金额', to: '成本', _type: 'rollup', _impact: 0.25 },
+        { from: '履约成本金额', to: '成本', _type: 'rollup', _impact: 0.3 },
+        { from: '仓储成本金额', to: '成本', _type: 'rollup', _impact: 0.15 },
+        { from: '客服成本金额', to: '成本', _type: 'rollup', _impact: 0.1 },
+        { from: '技术成本金额', to: '成本', _type: 'rollup', _impact: 0.1 },
+        { from: '补贴成本金额', to: '成本', _type: 'rollup', _impact: 0.1 },
+
+        { from: '收入', to: '净利', _type: 'rollup', _impact: 0.6 },
+        { from: '成本', to: '净利', _type: 'rollup', _impact: 0.4 }
+      ];
+
+      const idOf = G6.idOf;
+
+      const transformData = (data) => {
+        (data.edges || []).forEach((e) => { e.source = e.from; e.target = e.to; });
+        return data;
+      };
+
+      const getHealthRatio = (node) => {
+        if (node == null) return null;
+        const v = Number(node._value);
+        const t = Number(node._target);
+        if (!isFinite(v) || !isFinite(t) || t === 0) return null;
+        if (node._better === 'lower') return v > 0 ? (t / v) : null; // 越低越好
+        return v / t; // 越高越好
+      };
+
+      const getHealthStatus = (node) => {
+        const ratio = getHealthRatio(node);
+        if (ratio == null) return 'neutral';
+        const thr = node._threshold || { good: 1.0, warn: 0.95, bad: 0 };
+        if (ratio >= thr.good) return 'good';
+        if (ratio >= thr.warn) return 'warn';
+        return 'bad';
+      };
+
+      const colorByHealth = (node) => {
+        const status = getHealthStatus(node);
+        if (status === 'good') return GOOD;
+        if (status === 'warn') return WARN;
+        if (status === 'bad') return BAD;
+        return NEUTRAL;
+      };
+
+      const sizeBy = (nodeId, nodes, edges, minSize = 24, maxSize = 140) => {
+        const node = nodes.find((n) => n.id === nodeId) || {};
+        const degree = edges.filter((e) => e.source === nodeId || e.target === nodeId).length;
+        const weight = Number(node._weight || 0);
+        // 影响力 = 0.7*度数标准化 + 0.3*权重
+        const degrees = nodes.map((n) => edges.filter((e) => e.source === n.id || e.target === n.id).length);
+        const minD = Math.min(...degrees, 0);
+        const maxD = Math.max(...degrees, 1);
+        const normD = (degree - minD) / (maxD - minD || 1);
+        const influence = 0.7 * normD + 0.3 * Math.min(weight, 1);
+        return minSize + influence * (maxSize - minSize);
+      };
+
+      class ClickElement extends G6.BaseBehavior {
+        constructor(context, options) { super(context, options); this.bindEvents(); }
+        async clearState() { const { graph } = this.context; const { nodes, edges } = graph.getData(); const s = {}; [...nodes, ...edges].forEach(d => s[idOf(d)] = []); await graph.setElementState(s, false); }
+        onNodeClick = async (event) => {
+          await this.clearState();
+          toggleListVisibility(false);
+          const { direction = 'out', onlyNeighbors } = event;
+          const nodeId = event.target.id; const { graph } = this.context; const { nodes, edges } = graph.getData();
+          let relatedIds;
+          if (onlyNeighbors) {
+            const neighborNodes = graph.getNeighborNodesData(nodeId);
+            const neighborEdges = graph.getRelatedEdgesData(nodeId);
+            const oneLevelIds = [...neighborNodes, ...neighborEdges].map(idOf);
+            relatedIds = [...oneLevelIds, nodeId];
+            graph.updateNodeData(prev => prev.filter(n => relatedIds.includes(n.id) && (n.style.level = oneLevelIds.includes(n.id) ? 1 : 0)));
+            const states = {}; [...nodes, ...edges].forEach(d => states[idOf(d)] = relatedIds.includes(idOf(d)) ? ['link'] : ['inactive']);
+            await graph.setElementState(states);
+          } else {
+            const levels = getLevelMap(nodeId, direction);
+            relatedIds = Object.keys(levels);
+            graph.updateNodeData(prev => prev.filter(n => relatedIds.includes(n.id) && (n.style.level = levels[n.id])));
+            graph.updateEdgeData(prev => prev.filter(e => (levels[e.source] || levels[e.target]) && (e.style.level = Math.min(levels[e.source], levels[e.target]))));
+            const states = {}; nodes.forEach(n => states[n.id] = relatedIds.includes(n.id) ? ['link'] : ['inactive']);
+            edges.forEach(e => states[idOf(e)] = relatedIds.includes(e.source) && relatedIds.includes(e.target) ? ['link'] : ['inactive']);
+            await graph.setElementState(states);
+          }
+        };
+        onCanvasClick = async () => { await this.clearState(); toggleListVisibility(false); clearSearchInput(); };
+        bindEvents() { const { graph } = this.context; graph.on('node:click', this.onNodeClick); graph.on('canvas:click', this.onCanvasClick); }
+        unbindEvents() { const { graph } = this.context; graph.off('node:click', this.onNodeClick); graph.off('canvas:click', this.onCanvasClick); }
+        destroy() { this.unbindEvents(); super.destroy(); }
+      }
+
+      const getLevelMap = (nodeId, direction) => {
+        const stack = [nodeId]; const visited = new Set(); const levelMap = { [nodeId]: 0 };
+        const processEdge = (source, target, parentLevel) => { if (!visited.has(target)) { const nl = parentLevel + 1; if (!levelMap[target] || nl < levelMap[target]) { levelMap[target] = nl; stack.push(target); } } };
+        while (stack.length) { const id = stack.pop(); if (!visited.has(id)) { visited.add(id); const pl = levelMap[id]; const related = graph.getRelatedEdgesData(id); related.forEach(edge => {
+          if (direction === 'out') { if (edge.source === id) processEdge(edge.source, edge.target, pl); else if (edge._bidirectional) processEdge(edge.target, edge.source, pl); }
+          else if (direction === 'in') { if (edge.target === id) processEdge(edge.target, edge.source, pl); else if (edge._bidirectional) processEdge(edge.source, edge.target, pl); }
+        }); } }
+        return levelMap;
+      };
+
+      const toggleListVisibility = (isShow) => { document.getElementById('search-list').style.display = isShow ? 'block' : 'none'; };
+      const clearSearchInput = () => { document.getElementById('searchInput').value = ''; };
+      const removeElement = (el) => { while (el.firstChild) el.removeChild(el.firstChild); };
+
+      class SearchBar extends G6.BasePlugin {
+        liveAlert = document.getElementById('live-alert');
+        searchInput = document.getElementById('searchInput');
+        searchButton = document.getElementById('searchButton');
+        target;
+        constructor(context, options) { super(context, options); this.bindEvents(); }
+        appendAlert = (message, type) => { removeElement(this.liveAlert); const w = document.createElement('div'); w.innerHTML = [`<div class="alert alert-${type} alert-dismissible alert-message" role="alert">`, `   <div>${message}</div>`, '   <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>', '</div>'].join(''); this.liveAlert.append(w); };
+        handleInputKeyup = (event) => {
+          const { graph } = this.context; removeElement(this.liveAlert);
+          const PRE = '<b style="color: #1783FF;">'; const POST = '</b>';
+          const data = graph.getData(); const nodeList = data.nodes.map(n => ({ id: n.id }));
+          const filtered = fuzzy.filter(this.searchInput.value, nodeList, { pre: PRE, post: POST, extract: el => el.id });
+          const sorted = filtered.sort((a, b) => { const regx = new RegExp(PRE, 'g'); const ac = (a.string.match(regx) || []).length; const bc = (b.string.match(regx) || []).length; if (ac !== bc) return bc - ac; const regx2 = new RegExp(POST + PRE, 'g'); const as = (a.string.match(regx2) || []).length; const bs = (b.string.match(regx2) || []).length; if (as !== bs) return bs - as; return a.string.indexOf(PRE) - b.string.indexOf(PRE); });
+          document.getElementById('search-list').innerHTML = sorted.map(el => `<div class="mb-1">${el.string}</div>`).join('');
+          this.target = sorted[0]?.original.id || '';
+          toggleListVisibility(true);
+          if (event.keyCode === 13) { event.preventDefault(); this.searchButton.click(); }
+          else if (this.searchInput.value === '') { graph.emit('canvas:click', { targetType: 'canvas' }); }
+        };
+        handleButtonClick = async () => { const { graph } = this.context; const v = this.searchInput.value; if (!v) return; if (!this.target) { this.appendAlert(`未找到 “${v}”`, 'warning'); graph.emit('canvas:click', { targetType: 'canvas' }); }
+          graph.emit('node:click', { target: graph.getNodeData(this.target), targetType: 'node', direction: 'out' }); await graph.fitView(); };
+        bindEvents() { this.searchInput.addEventListener('keyup', this.handleInputKeyup); this.searchButton.addEventListener('click', this.handleButtonClick); }
+        unbindEvents() { this.searchInput.removeEventListener('keyup', this.handleInputKeyup); this.searchButton.removeEventListener('click', this.handleButtonClick); }
+        destroy() { this.unbindEvents(); super.destroy(); }
+      }
+
+      class DetailContent extends G6.BasePlugin {
+        nodeDetail = document.getElementById('node-detail');
+        constructor(context, options) { super(context, options); this.bindEvents(); }
+        appendDetail = (node) => {
+          removeElement(this.nodeDetail);
+          if (!node) return;
+          const line = (k, v) => { const div = document.createElement('div'); div.className = 'metric-line'; div.innerHTML = `<span class="k">${k}</span><span class="v">${v}</span>`; return div; };
+          const title = document.createElement('div'); title.style.fontWeight = '700'; title.style.marginBottom = '4px'; title.innerText = node.id; this.nodeDetail.appendChild(title);
+          if (node._value != null) this.nodeDetail.appendChild(line('当前', `${node._value}${node._unit || ''}`));
+          if (node._target != null) this.nodeDetail.appendChild(line('目标', `${node._target}${node._unit || ''}`));
+          const status = getHealthStatus(node); this.nodeDetail.appendChild(line('健康', status));
+          if (node._domain) this.nodeDetail.appendChild(line('域', node._domain));
+          if (node._owner) this.nodeDetail.appendChild(line('负责人', node._owner));
+        };
+        onNodeClick = (event) => { const { target } = event; const { graph } = this.context; const data = graph.getNodeData(target.id); this.appendDetail(data); };
+        onCanvasClick = () => { removeElement(this.nodeDetail); };
+        bindEvents() { const { graph } = this.context; graph.on('node:click', this.onNodeClick); graph.on('canvas:click', this.onCanvasClick); }
+        unbindEvents() { const { graph } = this.context; graph.off('node:click', this.onNodeClick); graph.off('canvas:click', this.onCanvasClick); }
+        destroy() { this.unbindEvents(); super.destroy(); }
+      }
+
+      G6.register('behavior', 'click-element', ClickElement);
+
+      const toolbarOption = { type: 'toolbar', position: 'bottom-left', onClick: (item) => { if (item === 'zoom-in') graph.zoomBy(1.2); if (item === 'zoom-out') graph.zoomBy(0.8); if (item === 'auto-fit') graph.fitView(); }, getItems: () => ([{ id: 'zoom-in', value: 'zoom-in' }, { id: 'zoom-out', value: 'zoom-out' }, { id: 'auto-fit', value: 'auto-fit' }]) };
+
+      const contextmenuOption = { type: 'contextmenu', trigger: 'contextmenu', onClick: (v, element, target) => { if (v === 'reference-network') graph.emit('node:click', { target, targetType: 'node', direction: 'out' }); if (v === 'citation-network') graph.emit('node:click', { target, targetType: 'node', direction: 'in' }); if (v === 'direct-neighbors') graph.emit('node:click', { target, targetType: 'node', onlyNeighbors: true }); graph.fitView(); }, getItems: () => ([{ name: '下游影响网络', value: 'reference-network' }, { name: '上游依赖网络', value: 'citation-network' }, { name: '直接邻居', value: 'direct-neighbors' }]), enable: (e) => e.targetType === 'node' };
+
+      const colorOfEdge = (e) => { if (e._type === 'rollup') return ROLLUP_EDGE; if (e._type === 'influences') return INFLU_EDGE; return UNI_EDGE; };
+      const lineDashOf = (e) => { if (e._type === 'influences') return [6, 6]; if (e._type === 'correlates') return [2, 4]; return undefined; };
+
+      // 先注册插件
+      G6.register('plugin', 'search-bar', SearchBar);
+      G6.register('plugin', 'detail-content', DetailContent);
+
+      // 提升为全局，便于行为/函数访问
+      let graph;
+
+      const buildGraph = async (graphData) => {
+        const data = transformData(graphData);
+        graph = new G6.Graph({
+          container: 'network',
+          data: data,
+          animation: false,
+          autoFit: 'view',
+          padding: [0, 20, 0, 60],
+          background: BG_COLOR,
+          node: {
+            style: {
+              size: (d) => sizeBy(d.id, data.nodes, data.edges),
+              fill: (d) => colorByHealth(d),
+              iconFontFamily: 'iconfont',
+              iconText: (d) => (d._type === 'metric' ? '\ue7b0' : '\ue6ab'),
+              label: true,
+              labelText: (d) => d._value != null ? `${d.id}  ${d._value}${d._unit || ''}` : d.id,
+              labelFontSize: 12,
+              labelBackground: true,
+              labelBackgroundFill: '#e5e7eb',
+              labelPadding: [0, 6],
+              labelBackgroundRadius: 4,
+              labelMaxWidth: '400%',
+              labelWordWrap: true
+            },
+            state: {
+              inactive: { fill: '#cbd5e1', iconOpacity: 0.6, labelBackground: false },
+              link: { labelFontWeight: 'bold', halo: (d) => d.style.level === 0 }
+            }
+          },
+          edge: {
+            style: {
+              stroke: (e) => colorOfEdge(e),
+              lineDash: (e) => lineDashOf(e),
+              endArrow: true,
+              lineWidth: (e) => 1 + 2 * Number(e._impact || 0)
+            },
+            state: {
+              inactive: { opacity: 0.15, strokeOpacity: 0.15 },
+              link: { lineWidth: (e) => 1.5 + 2 * Number(e._impact || 0), halo: false }
+            }
+          },
+          layout: [
+            { type: 'antv-dagre', rankdir: 'RL', ranksep: 50, nodesep: 20, controlPoints: true, nodeSize: (d) => 30 },
+          ],
+          behaviors: ['drag-element', 'drag-canvas', 'zoom-canvas', 'click-element'],
+          plugins: [toolbarOption, contextmenuOption, 'search-bar', 'detail-content']
+        });
+
+        await document.fonts.ready;
+        await graph.render();
+        setTimeout(() => graph.render(), 16);
+        return graph;
+      };
+
+      const fetchJsonSafe = async (path) => {
+        try {
+          const res = await fetch(path, { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return await res.json();
+        } catch (e) { return null; }
+      };
+
+      const main = async () => {
+        // 优先尝试加载外部 JSON 数据
+        const loadedNodes = await fetchJsonSafe('./data/nodes.json');
+        const loadedEdges = await fetchJsonSafe('./data/edges.json');
+        const nodes = loadedNodes || defaultNodes;
+        const edges = loadedEdges || defaultEdges;
+        await buildGraph({ nodes, edges });
+      };
+
+      main();
+    </script>
+  </body>
+</html>
+
+

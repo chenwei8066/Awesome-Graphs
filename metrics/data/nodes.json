@@ -1,0 +1,96 @@
+[
+  { "id": "GMV", "_type": "metric", "_domain": "公司", "_value": 12.3, "_unit": "亿", "_trend": "up", "_target": 12.0, "_threshold": { "good": 1.0, "warn": 0.95, "bad": 0 }, "_weight": 1, "_owner": "财务" },
+  { "id": "净利", "_type": "metric", "_domain": "公司", "_value": 4.0, "_unit": "亿", "_target": 4.0, "_threshold": { "good": 1.0, "warn": 0.95, "bad": 0 }, "_weight": 1 },
+  { "id": "收入", "_type": "metric", "_domain": "财务", "_value": 20.0, "_unit": "亿", "_target": 19.0, "_threshold": { "good": 1.0, "warn": 0.97, "bad": 0 }, "_weight": 0.8 },
+  { "id": "成本", "_type": "metric", "_domain": "财务", "_value": 16.0, "_unit": "亿", "_target": 15.0, "_threshold": { "good": 1.0, "warn": 0.97, "bad": 0.9 }, "_better": "lower", "_weight": 0.8 },
+
+  { "id": "订单数", "_type": "metric", "_domain": "交易", "_value": 3200, "_unit": "万", "_trend": "down", "_target": 3300, "_threshold": { "good": 1.0, "warn": 0.95, "bad": 0 }, "_weight": 0.7 },
+  { "id": "AOV", "_type": "metric", "_domain": "交易", "_value": 385, "_unit": "元", "_trend": "up", "_target": 380, "_threshold": { "good": 1.0, "warn": 0.95, "bad": 0 }, "_weight": 0.6 },
+  { "id": "件单价", "_type": "metric", "_domain": "交易", "_value": 160, "_unit": "元", "_target": 155, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0 }, "_weight": 0.3 },
+  { "id": "件单量", "_type": "metric", "_domain": "交易", "_value": 2.4, "_unit": "件/单", "_target": 2.45, "_threshold": { "good": 1.0, "warn": 0.97, "bad": 0 }, "_weight": 0.3 },
+  { "id": "连带率", "_type": "metric", "_domain": "交易", "_value": 1.35, "_unit": "", "_target": 1.38, "_threshold": { "good": 1.0, "warn": 0.97, "bad": 0 }, "_weight": 0.2 },
+
+  { "id": "访客数UV", "_type": "metric", "_domain": "增长", "_value": 9800, "_unit": "万", "_trend": "flat", "_target": 10000, "_threshold": { "good": 1.0, "warn": 0.95, "bad": 0 }, "_weight": 0.6 },
+  { "id": "自然UV", "_type": "metric", "_domain": "增长", "_value": 6400, "_unit": "万", "_target": 6500, "_threshold": { "good": 1.0, "warn": 0.97, "bad": 0 }, "_weight": 0.4 },
+  { "id": "付费UV", "_type": "metric", "_domain": "增长", "_value": 3400, "_unit": "万", "_target": 3500, "_threshold": { "good": 1.0, "warn": 0.97, "bad": 0 }, "_weight": 0.4 },
+  { "id": "曝光", "_type": "metric", "_domain": "增长", "_value": 6.5, "_unit": "亿", "_target": 6.2, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0 }, "_weight": 0.3 },
+  { "id": "CTR", "_type": "metric", "_domain": "增长", "_value": 2.6, "_unit": "%", "_target": 2.7, "_threshold": { "good": 1.0, "warn": 0.96, "bad": 0 }, "_weight": 0.3 },
+  { "id": "DAU", "_type": "metric", "_domain": "增长", "_value": 1200, "_unit": "万", "_target": 1250, "_threshold": { "good": 1.0, "warn": 0.97, "bad": 0 }, "_weight": 0.3 },
+  { "id": "投放预算金额", "_type": "metric", "_domain": "增长", "_value": 2.1, "_unit": "亿", "_target": 2.0, "_threshold": { "good": 1.0, "warn": 0.95, "bad": 0 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "品牌搜索指数", "_type": "metric", "_domain": "品牌", "_value": 89, "_unit": "", "_target": 90, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0 }, "_weight": 0.2 },
+  { "id": "声量SOV", "_type": "metric", "_domain": "品牌", "_value": 24, "_unit": "%", "_target": 25, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0 }, "_weight": 0.2 },
+
+  { "id": "整体CVR", "_type": "metric", "_domain": "增长", "_value": 2.8, "_unit": "%", "_trend": "down", "_target": 3.0, "_threshold": { "good": 1.0, "warn": 0.95, "bad": 0 }, "_weight": 0.6 },
+  { "id": "落地页到达率", "_type": "metric", "_domain": "增长", "_value": 68.0, "_unit": "%", "_target": 70.0, "_threshold": { "good": 1.0, "warn": 0.97, "bad": 0 }, "_weight": 0.3 },
+  { "id": "跳失率", "_type": "metric", "_domain": "增长", "_value": 38.0, "_unit": "%", "_target": 35.0, "_threshold": { "good": 1.0, "warn": 0.97, "bad": 0.9 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "PDP转化", "_type": "metric", "_domain": "增长", "_value": 8.0, "_unit": "%", "_target": 9.0, "_threshold": { "good": 1.0, "warn": 0.95, "bad": 0 }, "_weight": 0.4 },
+  { "id": "加购率", "_type": "metric", "_domain": "增长", "_value": 21.0, "_unit": "%", "_target": 22.0, "_threshold": { "good": 1.0, "warn": 0.97, "bad": 0 }, "_weight": 0.3 },
+  { "id": "加购转化", "_type": "metric", "_domain": "增长", "_value": 35.0, "_unit": "%", "_target": 36.0, "_threshold": { "good": 1.0, "warn": 0.95, "bad": 0 }, "_weight": 0.3 },
+  { "id": "支付转化", "_type": "metric", "_domain": "交易", "_value": 85.0, "_unit": "%", "_target": 88.0, "_threshold": { "good": 1.0, "warn": 0.95, "bad": 0 }, "_weight": 0.4 },
+  { "id": "支付成功率", "_type": "metric", "_domain": "交易", "_value": 98.5, "_unit": "%", "_target": 99.0, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0 }, "_weight": 0.3 },
+  { "id": "复购率", "_type": "metric", "_domain": "用户", "_value": 30.0, "_unit": "%", "_target": 32.0, "_threshold": { "good": 1.0, "warn": 0.95, "bad": 0 }, "_weight": 0.3 },
+  { "id": "退款率", "_type": "metric", "_domain": "交易", "_value": 5.2, "_unit": "%", "_target": 4.5, "_threshold": { "good": 1.0, "warn": 0.97, "bad": 0.9 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "售后申请率", "_type": "metric", "_domain": "交易", "_value": 7.5, "_unit": "%", "_target": 7.0, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0.9 }, "_better": "lower", "_weight": 0.2 },
+
+  { "id": "在架SKU", "_type": "metric", "_domain": "商品", "_value": 1200, "_unit": "万", "_target": 1250, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0 }, "_weight": 0.3 },
+  { "id": "有效SKU", "_type": "metric", "_domain": "商品", "_value": 820, "_unit": "万", "_target": 850, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0 }, "_weight": 0.3 },
+  { "id": "动销率", "_type": "metric", "_domain": "商品", "_value": 68.0, "_unit": "%", "_target": 70.0, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0 }, "_weight": 0.2 },
+  { "id": "断货率", "_type": "metric", "_domain": "商品", "_value": 6.0, "_unit": "%", "_target": 5.0, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0.9 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "商品评分", "_type": "metric", "_domain": "商品", "_value": 4.6, "_unit": "/5", "_target": 4.7, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0 }, "_weight": 0.2 },
+  { "id": "详情完读率", "_type": "metric", "_domain": "商品", "_value": 52.0, "_unit": "%", "_target": 55.0, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0 }, "_weight": 0.2 },
+
+  { "id": "价格指数", "_type": "metric", "_domain": "价格", "_value": 0.96, "_unit": "vs竞品", "_target": 0.95, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0.95 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "比价胜率", "_type": "metric", "_domain": "价格", "_value": 62.0, "_unit": "%", "_target": 65.0, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0 }, "_weight": 0.2 },
+  { "id": "促销参与率", "_type": "metric", "_domain": "价格", "_value": 28.0, "_unit": "%", "_target": 30.0, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0 }, "_weight": 0.2 },
+  { "id": "券领取率", "_type": "metric", "_domain": "价格", "_value": 35.0, "_unit": "%", "_target": 36.0, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0 }, "_weight": 0.2 },
+  { "id": "券使用率", "_type": "metric", "_domain": "价格", "_value": 72.0, "_unit": "%", "_target": 73.0, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0 }, "_weight": 0.2 },
+
+  { "id": "总库存", "_type": "metric", "_domain": "供应链", "_value": 3.2, "_unit": "亿件", "_target": 3.0, "_threshold": { "good": 1.0, "warn": 0.97, "bad": 0 }, "_weight": 0.2 },
+  { "id": "有效库存", "_type": "metric", "_domain": "供应链", "_value": 2.6, "_unit": "亿件", "_target": 2.7, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0 }, "_weight": 0.2 },
+  { "id": "可售天数", "_type": "metric", "_domain": "供应链", "_value": 21, "_unit": "天", "_target": 23, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0 }, "_weight": 0.2 },
+  { "id": "库存周转天数", "_type": "metric", "_domain": "供应链", "_value": 35, "_unit": "天", "_target": 33, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0.9 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "预测准确率", "_type": "metric", "_domain": "供应链", "_value": 78.0, "_unit": "%", "_target": 80.0, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0 }, "_weight": 0.2 },
+  { "id": "补货及时率", "_type": "metric", "_domain": "供应链", "_value": 88.0, "_unit": "%", "_target": 90.0, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0 }, "_weight": 0.2 },
+
+  { "id": "发货时效", "_type": "metric", "_domain": "物流", "_value": 0.9, "_unit": "天", "_target": 0.8, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0.9 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "揽收时效", "_type": "metric", "_domain": "物流", "_value": 0.7, "_unit": "天", "_target": 0.6, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0.9 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "干线时效", "_type": "metric", "_domain": "物流", "_value": 1.1, "_unit": "天", "_target": 1.0, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0.9 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "派送时效", "_type": "metric", "_domain": "物流", "_value": 0.8, "_unit": "天", "_target": 0.7, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0.9 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "准时达率", "_type": "metric", "_domain": "物流", "_value": 96.0, "_unit": "%", "_target": 95.0, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0 }, "_weight": 0.3 },
+  { "id": "破损率", "_type": "metric", "_domain": "物流", "_value": 0.6, "_unit": "%", "_target": 0.5, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0.95 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "丢件率", "_type": "metric", "_domain": "物流", "_value": 0.12, "_unit": "%", "_target": 0.1, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0.95 }, "_better": "lower", "_weight": 0.2 },
+
+  { "id": "活跃商家数", "_type": "metric", "_domain": "商家", "_value": 32, "_unit": "万", "_target": 33, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0 }, "_weight": 0.2 },
+  { "id": "商家履约SLA达成率", "_type": "metric", "_domain": "商家", "_value": 92.0, "_unit": "%", "_target": 94.0, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0 }, "_weight": 0.2 },
+  { "id": "商家违规率", "_type": "metric", "_domain": "商家", "_value": 0.8, "_unit": "%", "_target": 0.7, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0.95 }, "_better": "lower", "_weight": 0.2 },
+
+  { "id": "首响时间", "_type": "metric", "_domain": "客服", "_value": 28, "_unit": "秒", "_target": 25, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0.9 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "一次解决率FCR", "_type": "metric", "_domain": "客服", "_value": 84.0, "_unit": "%", "_target": 86.0, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0 }, "_weight": 0.2 },
+  { "id": "投诉率", "_type": "metric", "_domain": "客服", "_value": 0.9, "_unit": "%", "_target": 0.8, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0.95 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "CSAT", "_type": "metric", "_domain": "客服", "_value": 4.5, "_unit": "/5", "_target": 4.6, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0 }, "_weight": 0.2 },
+  { "id": "NPS", "_type": "metric", "_domain": "客服", "_value": 38, "_unit": "", "_target": 40, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0 }, "_weight": 0.2 },
+
+  { "id": "拦截率", "_type": "metric", "_domain": "风控", "_value": 1.8, "_unit": "%", "_target": 1.6, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0.95 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "误杀率", "_type": "metric", "_domain": "风控", "_value": 0.12, "_unit": "%", "_target": 0.1, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0.95 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "拒付率", "_type": "metric", "_domain": "风控", "_value": 0.08, "_unit": "%", "_target": 0.07, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0.95 }, "_better": "lower", "_weight": 0.2 },
+
+  { "id": "可用率", "_type": "metric", "_domain": "技术", "_value": 99.92, "_unit": "%", "_target": 99.95, "_threshold": { "good": 1.0, "warn": 0.999, "bad": 0 }, "_weight": 0.3 },
+  { "id": "下单接口TP99", "_type": "metric", "_domain": "技术", "_value": 480, "_unit": "ms", "_target": 450, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0.95 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "白屏率", "_type": "metric", "_domain": "技术", "_value": 0.35, "_unit": "%", "_target": 0.3, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0.95 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "崩溃率", "_type": "metric", "_domain": "技术", "_value": 0.22, "_unit": "%", "_target": 0.2, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0.95 }, "_better": "lower", "_weight": 0.2 },
+
+  { "id": "交易佣金金额", "_type": "metric", "_domain": "财务", "_value": 8.4, "_unit": "亿", "_target": 8.0, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0 }, "_weight": 0.3 },
+  { "id": "平台佣金率", "_type": "metric", "_domain": "财务", "_value": 6.8, "_unit": "%", "_target": 6.7, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0 }, "_weight": 0.2 },
+  { "id": "广告收入金额", "_type": "metric", "_domain": "财务", "_value": 4.2, "_unit": "亿", "_target": 4.1, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0 }, "_weight": 0.3 },
+  { "id": "服务费金额", "_type": "metric", "_domain": "财务", "_value": 3.6, "_unit": "亿", "_target": 3.5, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0 }, "_weight": 0.2 },
+  { "id": "物流收入金额", "_type": "metric", "_domain": "财务", "_value": 3.8, "_unit": "亿", "_target": 3.7, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0 }, "_weight": 0.2 },
+
+  { "id": "营销成本金额", "_type": "metric", "_domain": "财务", "_value": 3.2, "_unit": "亿", "_target": 3.0, "_threshold": { "good": 1.0, "warn": 0.97, "bad": 0.9 }, "_better": "lower", "_weight": 0.3 },
+  { "id": "履约成本金额", "_type": "metric", "_domain": "财务", "_value": 4.5, "_unit": "亿", "_target": 4.3, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0.9 }, "_better": "lower", "_weight": 0.3 },
+  { "id": "仓储成本金额", "_type": "metric", "_domain": "财务", "_value": 2.1, "_unit": "亿", "_target": 2.0, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0.9 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "客服成本金额", "_type": "metric", "_domain": "财务", "_value": 0.9, "_unit": "亿", "_target": 0.85, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0.9 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "技术成本金额", "_type": "metric", "_domain": "财务", "_value": 1.1, "_unit": "亿", "_target": 1.0, "_threshold": { "good": 1.0, "warn": 0.99, "bad": 0.9 }, "_better": "lower", "_weight": 0.2 },
+  { "id": "补贴成本金额", "_type": "metric", "_domain": "财务", "_value": 2.2, "_unit": "亿", "_target": 2.0, "_threshold": { "good": 1.0, "warn": 0.98, "bad": 0.9 }, "_better": "lower", "_weight": 0.2 }
+]
+
+

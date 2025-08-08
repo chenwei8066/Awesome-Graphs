@@ -1,0 +1,93 @@
+[
+  { "from": "订单数", "to": "GMV", "_type": "rollup", "_impact": 0.6 },
+  { "from": "AOV", "to": "GMV", "_type": "rollup", "_impact": 0.4 },
+
+  { "from": "访客数UV", "to": "订单数", "_type": "depends", "_impact": 0.5 },
+  { "from": "整体CVR", "to": "订单数", "_type": "depends", "_impact": 0.5 },
+
+  { "from": "自然UV", "to": "访客数UV", "_type": "rollup", "_impact": 0.6 },
+  { "from": "付费UV", "to": "访客数UV", "_type": "rollup", "_impact": 0.4 },
+  { "from": "曝光", "to": "自然UV", "_type": "influences", "_impact": 0.4 },
+  { "from": "CTR", "to": "自然UV", "_type": "influences", "_impact": 0.6 },
+  { "from": "投放预算金额", "to": "付费UV", "_type": "influences", "_impact": 0.7 },
+  { "from": "品牌搜索指数", "to": "自然UV", "_type": "influences", "_impact": 0.4 },
+  { "from": "声量SOV", "to": "品牌搜索指数", "_type": "influences", "_impact": 0.5 },
+
+  { "from": "落地页到达率", "to": "整体CVR", "_type": "depends", "_impact": 0.2 },
+  { "from": "跳失率", "to": "整体CVR", "_type": "influences", "_impact": 0.15 },
+  { "from": "PDP转化", "to": "整体CVR", "_type": "depends", "_impact": 0.32 },
+  { "from": "加购率", "to": "整体CVR", "_type": "depends", "_impact": 0.18 },
+  { "from": "加购转化", "to": "整体CVR", "_type": "depends", "_impact": 0.15 },
+  { "from": "支付转化", "to": "整体CVR", "_type": "depends", "_impact": 0.2 },
+  { "from": "支付成功率", "to": "支付转化", "_type": "depends", "_impact": 0.6 },
+  { "from": "退款率", "to": "整体CVR", "_type": "influences", "_impact": 0.08 },
+  { "from": "售后申请率", "to": "退款率", "_type": "influences", "_impact": 0.5 },
+
+  { "from": "件单价", "to": "AOV", "_type": "rollup", "_impact": 0.5 },
+  { "from": "件单量", "to": "AOV", "_type": "rollup", "_impact": 0.5 },
+  { "from": "连带率", "to": "件单量", "_type": "influences", "_impact": 0.5 },
+  { "from": "券使用率", "to": "件单量", "_type": "influences", "_impact": 0.3 },
+  { "from": "券领取率", "to": "券使用率", "_type": "influences", "_impact": 0.5 },
+  { "from": "促销参与率", "to": "券领取率", "_type": "influences", "_impact": 0.5 },
+  { "from": "价格指数", "to": "PDP转化", "_type": "influences", "_impact": 0.4 },
+  { "from": "比价胜率", "to": "PDP转化", "_type": "influences", "_impact": 0.3 },
+
+  { "from": "在架SKU", "to": "有效SKU", "_type": "influences", "_impact": 0.3 },
+  { "from": "有效SKU", "to": "PDP转化", "_type": "influences", "_impact": 0.2 },
+  { "from": "动销率", "to": "有效SKU", "_type": "influences", "_impact": 0.3 },
+  { "from": "断货率", "to": "加购率", "_type": "influences", "_impact": 0.2 },
+  { "from": "商品评分", "to": "PDP转化", "_type": "influences", "_impact": 0.2 },
+  { "from": "详情完读率", "to": "PDP转化", "_type": "influences", "_impact": 0.2 },
+
+  { "from": "总库存", "to": "断货率", "_type": "influences", "_impact": 0.2 },
+  { "from": "有效库存", "to": "断货率", "_type": "influences", "_impact": 0.4 },
+  { "from": "可售天数", "to": "断货率", "_type": "influences", "_impact": 0.2 },
+  { "from": "库存周转天数", "to": "价格指数", "_type": "influences", "_impact": 0.1 },
+  { "from": "预测准确率", "to": "断货率", "_type": "influences", "_impact": 0.2 },
+  { "from": "补货及时率", "to": "断货率", "_type": "influences", "_impact": 0.2 },
+
+  { "from": "发货时效", "to": "准时达率", "_type": "influences", "_impact": 0.3 },
+  { "from": "揽收时效", "to": "准时达率", "_type": "influences", "_impact": 0.2 },
+  { "from": "干线时效", "to": "准时达率", "_type": "influences", "_impact": 0.25 },
+  { "from": "派送时效", "to": "准时达率", "_type": "influences", "_impact": 0.25 },
+  { "from": "破损率", "to": "售后申请率", "_type": "influences", "_impact": 0.3 },
+  { "from": "丢件率", "to": "售后申请率", "_type": "influences", "_impact": 0.3 },
+  { "from": "准时达率", "to": "复购率", "_type": "influences", "_impact": 0.3 },
+  { "from": "复购率", "to": "整体CVR", "_type": "influences", "_impact": 0.2 },
+
+  { "from": "活跃商家数", "to": "在架SKU", "_type": "influences", "_impact": 0.3 },
+  { "from": "商家履约SLA达成率", "to": "准时达率", "_type": "influences", "_impact": 0.2 },
+  { "from": "商家违规率", "to": "退款率", "_type": "influences", "_impact": 0.1 },
+
+  { "from": "一次解决率FCR", "to": "CSAT", "_type": "influences", "_impact": 0.4 },
+  { "from": "首响时间", "to": "CSAT", "_type": "influences", "_impact": 0.3 },
+  { "from": "投诉率", "to": "CSAT", "_type": "influences", "_impact": 0.3 },
+  { "from": "CSAT", "to": "复购率", "_type": "influences", "_impact": 0.2 },
+  { "from": "NPS", "to": "品牌搜索指数", "_type": "influences", "_impact": 0.2 },
+
+  { "from": "拦截率", "to": "支付成功率", "_type": "influences", "_impact": 0.2 },
+  { "from": "误杀率", "to": "支付成功率", "_type": "influences", "_impact": 0.2 },
+  { "from": "拒付率", "to": "支付成功率", "_type": "influences", "_impact": 0.2 },
+
+  { "from": "可用率", "to": "下单接口TP99", "_type": "influences", "_impact": 0.2 },
+  { "from": "白屏率", "to": "跳失率", "_type": "influences", "_impact": 0.2 },
+  { "from": "崩溃率", "to": "跳失率", "_type": "influences", "_impact": 0.2 },
+
+  { "from": "交易佣金金额", "to": "收入", "_type": "rollup", "_impact": 0.35 },
+  { "from": "平台佣金率", "to": "交易佣金金额", "_type": "influences", "_impact": 0.5 },
+  { "from": "广告收入金额", "to": "收入", "_type": "rollup", "_impact": 0.2 },
+  { "from": "服务费金额", "to": "收入", "_type": "rollup", "_impact": 0.2 },
+  { "from": "物流收入金额", "to": "收入", "_type": "rollup", "_impact": 0.25 },
+
+  { "from": "营销成本金额", "to": "成本", "_type": "rollup", "_impact": 0.25 },
+  { "from": "履约成本金额", "to": "成本", "_type": "rollup", "_impact": 0.3 },
+  { "from": "仓储成本金额", "to": "成本", "_type": "rollup", "_impact": 0.15 },
+  { "from": "客服成本金额", "to": "成本", "_type": "rollup", "_impact": 0.1 },
+  { "from": "技术成本金额", "to": "成本", "_type": "rollup", "_impact": 0.1 },
+  { "from": "补贴成本金额", "to": "成本", "_type": "rollup", "_impact": 0.1 },
+
+  { "from": "收入", "to": "净利", "_type": "rollup", "_impact": 0.6 },
+  { "from": "成本", "to": "净利", "_type": "rollup", "_impact": 0.4 }
+]
+
+
