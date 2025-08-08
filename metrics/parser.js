@@ -25,11 +25,20 @@ class MarkdownParser {
 
       // 如果是列表项，需要相对于最近的标题层级计算
       const isListItem = line.match(/^(\s*)-\s/);
-      if (isListItem && lastHeaderLevel >= 0) {
-        const indentLevel = Math.floor(isListItem[1].length / 2);
-        level = lastHeaderLevel + 1 + indentLevel; // 相对于最近标题的层级
-      } else if (!isListItem) {
-        lastHeaderLevel = level; // 更新最近的标题层级
+      if (isListItem) {
+        // 计算缩进级别，每2个空格为一层缩进
+        const indentSpaces = isListItem[1].length;
+        const indentLevel = Math.floor(indentSpaces / 2);
+        
+        if (lastHeaderLevel >= 0) {
+          level = lastHeaderLevel + 1 + indentLevel; // 相对于最近标题的层级
+        } else {
+          level = indentLevel + 1; // 如果没有标题，从层级1开始
+        }
+        
+      } else if (line.match(/^#{1,7}\s/)) {
+        // 只有标题行才更新lastHeaderLevel
+        lastHeaderLevel = level;
       }
 
       const content = this.extractContent(line);
@@ -45,20 +54,25 @@ class MarkdownParser {
       this.nodes.push(node);
 
       // 创建与直接父节点的连接
-      if (level > 0 && hierarchyStack.length > 0) {
-        const parentNode = hierarchyStack[hierarchyStack.length - 1];
-        if (parentNode && parentNode.id) {
+      if (level > 0) {
+        // 找到正确的父节点：层级为level-1的最近节点
+        let parentNode = null;
+        for (let i = level - 1; i >= 0; i--) {
+          if (hierarchyStack[i] && hierarchyStack[i].id) {
+            parentNode = hierarchyStack[i];
+            break;
+          }
+        }
+        
+        if (parentNode) {
           const edge = this.createEdge(parentNode.id, node.id, level);
           this.edges.push(edge);
         }
       }
 
       // 正确更新层次栈：确保当前节点放在正确的层级位置
-      if (hierarchyStack.length <= level) {
-        // 如果栈长度不够，先填充空位
-        while (hierarchyStack.length <= level) {
-          hierarchyStack.push(null);
-        }
+      while (hierarchyStack.length <= level) {
+        hierarchyStack.push(null);
       }
       hierarchyStack[level] = node;
     }
@@ -71,7 +85,7 @@ class MarkdownParser {
 
   // 获取Markdown标题级别
   getMarkdownLevel(line) {
-    const headerMatch = line.match(/^(#{1,6})\s/);
+    const headerMatch = line.match(/^(#{1,7})\s/);
     if (headerMatch) {
       return headerMatch[1].length - 1; // 转换为0-based层级
     }
@@ -89,7 +103,7 @@ class MarkdownParser {
   // 提取内容文本
   extractContent(line) {
     // 提取标题内容
-    const headerMatch = line.match(/^#{1,6}\s+(.+)/);
+    const headerMatch = line.match(/^#{1,7}\s+(.+)/);
     if (headerMatch) {
       let content = headerMatch[1].trim();
       // 清理编号前缀 (如 "1. DAU" -> "DAU", "1.1.1 分端-ET" -> "分端-ET")
