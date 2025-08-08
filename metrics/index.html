@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>公司经营指标图谱</title>
+    <title>有效订单量指标图谱</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://at.alicdn.com/t/a/font_470089_8hnbbf8n4u8.css" />
     <style>
@@ -27,7 +27,7 @@
   </head>
   <body>
     <div class="input-group mb-3 search-bar">
-      <input type="text" id="searchInput" class="form-control" placeholder="搜索指标/目标/输入，如 GMV、订单数" aria-describedby="searchButton" />
+      <input type="text" id="searchInput" class="form-control" placeholder="搜索指标，如 DAU、访购率、营销补贴" aria-describedby="searchButton" />
       <button id="searchButton" class="btn btn-outline-secondary" type="button">Search</button>
     </div>
     <div id="search-list"></div>
@@ -36,10 +36,11 @@
     <div id="network"></div>
 
     <div class="legend">
-      <div class="item"><span class="dot" style="background:#22c55e"></span><span>达标（Good）</span></div>
-      <div class="item"><span class="dot" style="background:#f59e0b"></span><span>预警（Warn）</span></div>
-      <div class="item"><span class="dot" style="background:#ef4444"></span><span>异常（Bad）</span></div>
-      <div class="item"><span class="dot" style="background:#60a5fa"></span><span>无目标/中性（Neutral）</span></div>
+      <div class="item"><span class="dot" style="background:#1e40af"></span><span>核心指标</span></div>
+      <div class="item"><span class="dot" style="background:#059669"></span><span>业务线</span></div>
+      <div class="item"><span class="dot" style="background:#dc2626"></span><span>平台/用户群</span></div>
+      <div class="item"><span class="dot" style="background:#7c3aed"></span><span>影响因子</span></div>
+      <div class="item"><span class="dot" style="background:#ea580c"></span><span>营销工具</span></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -47,199 +48,38 @@
     <script src="https://unpkg.com/@antv/g6@5/dist/g6.min.js"></script>
     <script type="module">
       const BG_COLOR = '#FFF';
-      const GOOD = '#22c55e';
-      const WARN = '#f59e0b';
-      const BAD = '#ef4444';
-      const NEUTRAL = '#60a5fa';
+      const CORE_TARGET = '#1e40af';     // 核心目标
+      const CORE_METRIC = '#059669';     // 核心指标
+      const SEGMENT = '#dc2626';         // 业务线/平台
+      const FACTOR = '#7c3aed';          // 影响因子
+      const TOOL = '#ea580c';            // 工具
       const UNI_EDGE = '#94a3b8';
       const ROLLUP_EDGE = '#6366f1';
       const INFLU_EDGE = '#0891b2';
 
-      // 默认样例数据（在无法从 JSON 加载时使用）
+      // 默认fallback数据（在无法从 JSON 加载时使用）
       const defaultNodes = [
-        { id: 'GMV', _type: 'metric', _domain: '公司', _value: 12.3, _unit: '亿', _trend: 'up', _target: 12.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 1, _owner: '财务' },
-        { id: '净利', _type: 'metric', _domain: '公司', _value: 4.0, _unit: '亿', _target: 4.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 1 },
-        { id: '收入', _type: 'metric', _domain: '财务', _value: 20.0, _unit: '亿', _target: 19.0, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.8 },
-        { id: '成本', _type: 'metric', _domain: '财务', _value: 16.0, _unit: '亿', _target: 15.0, _threshold: { good: 1.0, warn: 0.97, bad: 0.9 }, _better: 'lower', _weight: 0.8 },
-
-        { id: '订单数', _type: 'metric', _domain: '交易', _value: 3200, _unit: '万', _trend: 'down', _target: 3300, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.7 },
-        { id: 'AOV', _type: 'metric', _domain: '交易', _value: 385, _unit: '元', _trend: 'up', _target: 380, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.6 },
-        { id: '件单价', _type: 'metric', _domain: '交易', _value: 160, _unit: '元', _target: 155, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.3 },
-        { id: '件单量', _type: 'metric', _domain: '交易', _value: 2.4, _unit: '件/单', _target: 2.45, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.3 },
-        { id: '连带率', _type: 'metric', _domain: '交易', _value: 1.35, _unit: '', _target: 1.38, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.2 },
-
-        { id: '访客数UV', _type: 'metric', _domain: '增长', _value: 9800, _unit: '万', _trend: 'flat', _target: 10000, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.6 },
-        { id: '自然UV', _type: 'metric', _domain: '增长', _value: 6400, _unit: '万', _target: 6500, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.4 },
-        { id: '付费UV', _type: 'metric', _domain: '增长', _value: 3400, _unit: '万', _target: 3500, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.4 },
-        { id: '曝光', _type: 'metric', _domain: '增长', _value: 6.5, _unit: '亿', _target: 6.2, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.3 },
-        { id: 'CTR', _type: 'metric', _domain: '增长', _value: 2.6, _unit: '%', _target: 2.7, _threshold: { good: 1.0, warn: 0.96, bad: 0 }, _weight: 0.3 },
-        { id: 'DAU', _type: 'metric', _domain: '增长', _value: 1200, _unit: '万', _target: 1250, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.3 },
-        { id: '投放预算金额', _type: 'metric', _domain: '增长', _value: 2.1, _unit: '亿', _target: 2.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _better: 'lower', _weight: 0.2 },
-        { id: '品牌搜索指数', _type: 'metric', _domain: '品牌', _value: 89, _unit: '', _target: 90, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
-        { id: '声量SOV', _type: 'metric', _domain: '品牌', _value: 24, _unit: '%', _target: 25, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
-
-        { id: '整体CVR', _type: 'metric', _domain: '增长', _value: 2.8, _unit: '%', _trend: 'down', _target: 3.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.6 },
-        { id: '落地页到达率', _type: 'metric', _domain: '增长', _value: 68.0, _unit: '%', _target: 70.0, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.3 },
-        { id: '跳失率', _type: 'metric', _domain: '增长', _value: 38.0, _unit: '%', _target: 35.0, _threshold: { good: 1.0, warn: 0.97, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
-        { id: 'PDP转化', _type: 'metric', _domain: '增长', _value: 8.0, _unit: '%', _target: 9.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.4 },
-        { id: '加购率', _type: 'metric', _domain: '增长', _value: 21.0, _unit: '%', _target: 22.0, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.3 },
-        { id: '加购转化', _type: 'metric', _domain: '增长', _value: 35.0, _unit: '%', _target: 36.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.3 },
-        { id: '支付转化', _type: 'metric', _domain: '交易', _value: 85.0, _unit: '%', _target: 88.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.4 },
-        { id: '支付成功率', _type: 'metric', _domain: '交易', _value: 98.5, _unit: '%', _target: 99.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.3 },
-        { id: '复购率', _type: 'metric', _domain: '用户', _value: 30.0, _unit: '%', _target: 32.0, _threshold: { good: 1.0, warn: 0.95, bad: 0 }, _weight: 0.3 },
-        { id: '退款率', _type: 'metric', _domain: '交易', _value: 5.2, _unit: '%', _target: 4.5, _threshold: { good: 1.0, warn: 0.97, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
-        { id: '售后申请率', _type: 'metric', _domain: '交易', _value: 7.5, _unit: '%', _target: 7.0, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
-
-        { id: '在架SKU', _type: 'metric', _domain: '商品', _value: 1200, _unit: '万', _target: 1250, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.3 },
-        { id: '有效SKU', _type: 'metric', _domain: '商品', _value: 820, _unit: '万', _target: 850, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.3 },
-        { id: '动销率', _type: 'metric', _domain: '商品', _value: 68.0, _unit: '%', _target: 70.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
-        { id: '断货率', _type: 'metric', _domain: '商品', _value: 6.0, _unit: '%', _target: 5.0, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
-        { id: '商品评分', _type: 'metric', _domain: '商品', _value: 4.6, _unit: '/5', _target: 4.7, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
-        { id: '详情完读率', _type: 'metric', _domain: '商品', _value: 52.0, _unit: '%', _target: 55.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
-
-        { id: '价格指数', _type: 'metric', _domain: '价格', _value: 0.96, _unit: 'vs竞品', _target: 0.95, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
-        { id: '比价胜率', _type: 'metric', _domain: '价格', _value: 62.0, _unit: '%', _target: 65.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
-        { id: '促销参与率', _type: 'metric', _domain: '价格', _value: 28.0, _unit: '%', _target: 30.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
-        { id: '券领取率', _type: 'metric', _domain: '价格', _value: 35.0, _unit: '%', _target: 36.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
-        { id: '券使用率', _type: 'metric', _domain: '价格', _value: 72.0, _unit: '%', _target: 73.0, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
-
-        { id: '总库存', _type: 'metric', _domain: '供应链', _value: 3.2, _unit: '亿件', _target: 3.0, _threshold: { good: 1.0, warn: 0.97, bad: 0 }, _weight: 0.2 },
-        { id: '有效库存', _type: 'metric', _domain: '供应链', _value: 2.6, _unit: '亿件', _target: 2.7, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
-        { id: '可售天数', _type: 'metric', _domain: '供应链', _value: 21, _unit: '天', _target: 23, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.2 },
-        { id: '库存周转天数', _type: 'metric', _domain: '供应链', _value: 35, _unit: '天', _target: 33, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
-        { id: '预测准确率', _type: 'metric', _domain: '供应链', _value: 78.0, _unit: '%', _target: 80.0, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
-        { id: '补货及时率', _type: 'metric', _domain: '供应链', _value: 88.0, _unit: '%', _target: 90.0, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
-
-        { id: '发货时效', _type: 'metric', _domain: '物流', _value: 0.9, _unit: '天', _target: 0.8, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
-        { id: '揽收时效', _type: 'metric', _domain: '物流', _value: 0.7, _unit: '天', _target: 0.6, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
-        { id: '干线时效', _type: 'metric', _domain: '物流', _value: 1.1, _unit: '天', _target: 1.0, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
-        { id: '派送时效', _type: 'metric', _domain: '物流', _value: 0.8, _unit: '天', _target: 0.7, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
-        { id: '准时达率', _type: 'metric', _domain: '物流', _value: 96.0, _unit: '%', _target: 95.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.3 },
-        { id: '破损率', _type: 'metric', _domain: '物流', _value: 0.6, _unit: '%', _target: 0.5, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
-        { id: '丢件率', _type: 'metric', _domain: '物流', _value: 0.12, _unit: '%', _target: 0.1, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
-
-        { id: '活跃商家数', _type: 'metric', _domain: '商家', _value: 32, _unit: '万', _target: 33, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
-        { id: '商家履约SLA达成率', _type: 'metric', _domain: '商家', _value: 92.0, _unit: '%', _target: 94.0, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
-        { id: '商家违规率', _type: 'metric', _domain: '商家', _value: 0.8, _unit: '%', _target: 0.7, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
-
-        { id: '首响时间', _type: 'metric', _domain: '客服', _value: 28, _unit: '秒', _target: 25, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
-        { id: '一次解决率FCR', _type: 'metric', _domain: '客服', _value: 84.0, _unit: '%', _target: 86.0, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
-        { id: '投诉率', _type: 'metric', _domain: '客服', _value: 0.9, _unit: '%', _target: 0.8, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
-        { id: 'CSAT', _type: 'metric', _domain: '客服', _value: 4.5, _unit: '/5', _target: 4.6, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
-        { id: 'NPS', _type: 'metric', _domain: '客服', _value: 38, _unit: '', _target: 40, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
-
-        { id: '拦截率', _type: 'metric', _domain: '风控', _value: 1.8, _unit: '%', _target: 1.6, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
-        { id: '误杀率', _type: 'metric', _domain: '风控', _value: 0.12, _unit: '%', _target: 0.1, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
-        { id: '拒付率', _type: 'metric', _domain: '风控', _value: 0.08, _unit: '%', _target: 0.07, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
-
-        { id: '可用率', _type: 'metric', _domain: '技术', _value: 99.92, _unit: '%', _target: 99.95, _threshold: { good: 1.0, warn: 0.999, bad: 0 }, _weight: 0.3 },
-        { id: '下单接口TP99', _type: 'metric', _domain: '技术', _value: 480, _unit: 'ms', _target: 450, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
-        { id: '白屏率', _type: 'metric', _domain: '技术', _value: 0.35, _unit: '%', _target: 0.3, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
-        { id: '崩溃率', _type: 'metric', _domain: '技术', _value: 0.22, _unit: '%', _target: 0.2, _threshold: { good: 1.0, warn: 0.99, bad: 0.95 }, _better: 'lower', _weight: 0.2 },
-
-        { id: '交易佣金金额', _type: 'metric', _domain: '财务', _value: 8.4, _unit: '亿', _target: 8.0, _threshold: { good: 1.0, warn: 0.98, bad: 0 }, _weight: 0.3 },
-        { id: '平台佣金率', _type: 'metric', _domain: '财务', _value: 6.8, _unit: '%', _target: 6.7, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
-        { id: '广告收入金额', _type: 'metric', _domain: '财务', _value: 4.2, _unit: '亿', _target: 4.1, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.3 },
-        { id: '服务费金额', _type: 'metric', _domain: '财务', _value: 3.6, _unit: '亿', _target: 3.5, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
-        { id: '物流收入金额', _type: 'metric', _domain: '财务', _value: 3.8, _unit: '亿', _target: 3.7, _threshold: { good: 1.0, warn: 0.99, bad: 0 }, _weight: 0.2 },
-
-        { id: '营销成本金额', _type: 'metric', _domain: '财务', _value: 3.2, _unit: '亿', _target: 3.0, _threshold: { good: 1.0, warn: 0.97, bad: 0.9 }, _better: 'lower', _weight: 0.3 },
-        { id: '履约成本金额', _type: 'metric', _domain: '财务', _value: 4.5, _unit: '亿', _target: 4.3, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.3 },
-        { id: '仓储成本金额', _type: 'metric', _domain: '财务', _value: 2.1, _unit: '亿', _target: 2.0, _threshold: { good: 1.0, warn: 0.99, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
-        { id: '客服成本金额', _type: 'metric', _domain: '财务', _value: 0.9, _unit: '亿', _target: 0.85, _threshold: { good: 1.0, warn: 0.99, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
-        { id: '技术成本金额', _type: 'metric', _domain: '财务', _value: 1.1, _unit: '亿', _target: 1.0, _threshold: { good: 1.0, warn: 0.99, bad: 0.9 }, _better: 'lower', _weight: 0.2 },
-        { id: '补贴成本金额', _type: 'metric', _domain: '财务', _value: 2.2, _unit: '亿', _target: 2.0, _threshold: { good: 1.0, warn: 0.98, bad: 0.9 }, _better: 'lower', _weight: 0.2 }
+        { id: '有效订单量', _type: 'metric', _domain: '核心', _level: 0, _category: 'business_target', _weight: 1.0 },
+        { id: 'DAU', _type: 'metric', _domain: '用户', _level: 1, _category: 'core_metric', _weight: 0.9, _description: '日活跃用户数' },
+        { id: '访购率', _type: 'metric', _domain: '转化', _level: 1, _category: 'core_metric', _weight: 0.9, _description: '访问用户到购买的转化率' },
+        { id: '下单频次', _type: 'metric', _domain: '行为', _level: 1, _category: 'core_metric', _weight: 0.8, _description: '用户平均下单次数' },
+        { id: '笔单价', _type: 'metric', _domain: '收益', _level: 1, _category: 'core_metric', _weight: 0.8, _description: '平均订单金额' },
+        { id: '闪购DAU', _type: 'metric', _domain: '闪购', _level: 2, _category: 'segment', _weight: 0.7 },
+        { id: '非闪购DAU', _type: 'metric', _domain: '非闪购', _level: 2, _category: 'segment', _weight: 0.6 },
+        { id: 'ET端DAU', _type: 'metric', _domain: '闪购', _level: 3, _category: 'platform', _weight: 0.6 },
+        { id: '营销补贴', _type: 'factor', _domain: '营销', _level: 2, _category: 'conversion_factor', _weight: 0.7, _description: '影响访购率的营销因素' },
+        { id: '供给丰富度', _type: 'factor', _domain: '供给', _level: 2, _category: 'conversion_factor', _weight: 0.8, _description: '商户和商品供给情况' }
       ];
       const defaultEdges = [
-        { from: '订单数', to: 'GMV', _type: 'rollup', _impact: 0.6 },
-        { from: 'AOV', to: 'GMV', _type: 'rollup', _impact: 0.4 },
-
-        { from: '访客数UV', to: '订单数', _type: 'depends', _impact: 0.5 },
-        { from: '整体CVR', to: '订单数', _type: 'depends', _impact: 0.5 },
-
-        { from: '自然UV', to: '访客数UV', _type: 'rollup', _impact: 0.6 },
-        { from: '付费UV', to: '访客数UV', _type: 'rollup', _impact: 0.4 },
-        { from: '曝光', to: '自然UV', _type: 'influences', _impact: 0.4 },
-        { from: 'CTR', to: '自然UV', _type: 'influences', _impact: 0.6 },
-        { from: '投放预算金额', to: '付费UV', _type: 'influences', _impact: 0.7 },
-        { from: '品牌搜索指数', to: '自然UV', _type: 'influences', _impact: 0.4 },
-        { from: '声量SOV', to: '品牌搜索指数', _type: 'influences', _impact: 0.5 },
-
-        { from: '落地页到达率', to: '整体CVR', _type: 'depends', _impact: 0.2 },
-        { from: '跳失率', to: '整体CVR', _type: 'influences', _impact: 0.15 },
-        { from: 'PDP转化', to: '整体CVR', _type: 'depends', _impact: 0.32 },
-        { from: '加购率', to: '整体CVR', _type: 'depends', _impact: 0.18 },
-        { from: '加购转化', to: '整体CVR', _type: 'depends', _impact: 0.15 },
-        { from: '支付转化', to: '整体CVR', _type: 'depends', _impact: 0.2 },
-        { from: '支付成功率', to: '支付转化', _type: 'depends', _impact: 0.6 },
-        { from: '退款率', to: '整体CVR', _type: 'influences', _impact: 0.08 },
-        { from: '售后申请率', to: '退款率', _type: 'influences', _impact: 0.5 },
-
-        { from: '件单价', to: 'AOV', _type: 'rollup', _impact: 0.5 },
-        { from: '件单量', to: 'AOV', _type: 'rollup', _impact: 0.5 },
-        { from: '连带率', to: '件单量', _type: 'influences', _impact: 0.5 },
-        { from: '券使用率', to: '件单量', _type: 'influences', _impact: 0.3 },
-        { from: '券领取率', to: '券使用率', _type: 'influences', _impact: 0.5 },
-        { from: '促销参与率', to: '券领取率', _type: 'influences', _impact: 0.5 },
-        { from: '价格指数', to: 'PDP转化', _type: 'influences', _impact: 0.4 },
-        { from: '比价胜率', to: 'PDP转化', _type: 'influences', _impact: 0.3 },
-
-        { from: '在架SKU', to: '有效SKU', _type: 'influences', _impact: 0.3 },
-        { from: '有效SKU', to: 'PDP转化', _type: 'influences', _impact: 0.2 },
-        { from: '动销率', to: '有效SKU', _type: 'influences', _impact: 0.3 },
-        { from: '断货率', to: '加购率', _type: 'influences', _impact: 0.2 },
-        { from: '商品评分', to: 'PDP转化', _type: 'influences', _impact: 0.2 },
-        { from: '详情完读率', to: 'PDP转化', _type: 'influences', _impact: 0.2 },
-
-        { from: '总库存', to: '断货率', _type: 'influences', _impact: 0.2 },
-        { from: '有效库存', to: '断货率', _type: 'influences', _impact: 0.4 },
-        { from: '可售天数', to: '断货率', _type: 'influences', _impact: 0.2 },
-        { from: '库存周转天数', to: '价格指数', _type: 'influences', _impact: 0.1 },
-        { from: '预测准确率', to: '断货率', _type: 'influences', _impact: 0.2 },
-        { from: '补货及时率', to: '断货率', _type: 'influences', _impact: 0.2 },
-
-        { from: '发货时效', to: '准时达率', _type: 'influences', _impact: 0.3 },
-        { from: '揽收时效', to: '准时达率', _type: 'influences', _impact: 0.2 },
-        { from: '干线时效', to: '准时达率', _type: 'influences', _impact: 0.25 },
-        { from: '派送时效', to: '准时达率', _type: 'influences', _impact: 0.25 },
-        { from: '破损率', to: '售后申请率', _type: 'influences', _impact: 0.3 },
-        { from: '丢件率', to: '售后申请率', _type: 'influences', _impact: 0.3 },
-        { from: '准时达率', to: '复购率', _type: 'influences', _impact: 0.3 },
-        { from: '复购率', to: '整体CVR', _type: 'influences', _impact: 0.2 },
-
-        { from: '活跃商家数', to: '在架SKU', _type: 'influences', _impact: 0.3 },
-        { from: '商家履约SLA达成率', to: '准时达率', _type: 'influences', _impact: 0.2 },
-        { from: '商家违规率', to: '退款率', _type: 'influences', _impact: 0.1 },
-
-        { from: '一次解决率FCR', to: 'CSAT', _type: 'influences', _impact: 0.4 },
-        { from: '首响时间', to: 'CSAT', _type: 'influences', _impact: 0.3 },
-        { from: '投诉率', to: 'CSAT', _type: 'influences', _impact: 0.3 },
-        { from: 'CSAT', to: '复购率', _type: 'influences', _impact: 0.2 },
-        { from: 'NPS', to: '品牌搜索指数', _type: 'influences', _impact: 0.2 },
-
-        { from: '拦截率', to: '支付成功率', _type: 'influences', _impact: 0.2 },
-        { from: '误杀率', to: '支付成功率', _type: 'influences', _impact: 0.2 },
-        { from: '拒付率', to: '支付成功率', _type: 'influences', _impact: 0.2 },
-
-        { from: '可用率', to: '下单接口TP99', _type: 'influences', _impact: 0.2 },
-        { from: '白屏率', to: '跳失率', _type: 'influences', _impact: 0.2 },
-        { from: '崩溃率', to: '跳失率', _type: 'influences', _impact: 0.2 },
-
-        { from: '交易佣金金额', to: '收入', _type: 'rollup', _impact: 0.35 },
-        { from: '平台佣金率', to: '交易佣金金额', _type: 'influences', _impact: 0.5 },
-        { from: '广告收入金额', to: '收入', _type: 'rollup', _impact: 0.2 },
-        { from: '服务费金额', to: '收入', _type: 'rollup', _impact: 0.2 },
-        { from: '物流收入金额', to: '收入', _type: 'rollup', _impact: 0.25 },
-
-        { from: '营销成本金额', to: '成本', _type: 'rollup', _impact: 0.25 },
-        { from: '履约成本金额', to: '成本', _type: 'rollup', _impact: 0.3 },
-        { from: '仓储成本金额', to: '成本', _type: 'rollup', _impact: 0.15 },
-        { from: '客服成本金额', to: '成本', _type: 'rollup', _impact: 0.1 },
-        { from: '技术成本金额', to: '成本', _type: 'rollup', _impact: 0.1 },
-        { from: '补贴成本金额', to: '成本', _type: 'rollup', _impact: 0.1 },
-
-        { from: '收入', to: '净利', _type: 'rollup', _impact: 0.6 },
-        { from: '成本', to: '净利', _type: 'rollup', _impact: 0.4 }
+        { from: 'DAU', to: '有效订单量', _type: 'rollup', _impact: 0.25 },
+        { from: '访购率', to: '有效订单量', _type: 'rollup', _impact: 0.25 },
+        { from: '下单频次', to: '有效订单量', _type: 'rollup', _impact: 0.25 },
+        { from: '笔单价', to: '有效订单量', _type: 'rollup', _impact: 0.25 },
+        { from: '闪购DAU', to: 'DAU', _type: 'rollup', _impact: 0.6 },
+        { from: '非闪购DAU', to: 'DAU', _type: 'rollup', _impact: 0.4 },
+        { from: 'ET端DAU', to: '闪购DAU', _type: 'rollup', _impact: 0.6 },
+        { from: '营销补贴', to: '访购率', _type: 'influences', _impact: 0.4 },
+        { from: '供给丰富度', to: '访购率', _type: 'influences', _impact: 0.35 }
       ];
 
       const idOf = G6.idOf;
@@ -249,33 +89,17 @@
         return data;
       };
 
-      const getHealthRatio = (node) => {
-        if (node == null) return null;
-        const v = Number(node._value);
-        const t = Number(node._target);
-        if (!isFinite(v) || !isFinite(t) || t === 0) return null;
-        if (node._better === 'lower') return v > 0 ? (t / v) : null; // 越低越好
-        return v / t; // 越高越好
+      const colorByCategory = (node) => {
+        if (node._category === 'business_target') return CORE_TARGET;
+        if (node._category === 'core_metric') return CORE_METRIC;
+        if (node._category === 'segment' || node._category === 'platform' || node._category === 'user_group') return SEGMENT;
+        if (node._category === 'conversion_factor' || node._category === 'supply_metric' || node._category === 'logistics_metric') return FACTOR;
+        if (node._category === 'marketing_tool' || node._type === 'tool') return TOOL;
+        if (node._type === 'factor') return FACTOR;
+        return CORE_METRIC; // 默认颜色
       };
 
-      const getHealthStatus = (node) => {
-        const ratio = getHealthRatio(node);
-        if (ratio == null) return 'neutral';
-        const thr = node._threshold || { good: 1.0, warn: 0.95, bad: 0 };
-        if (ratio >= thr.good) return 'good';
-        if (ratio >= thr.warn) return 'warn';
-        return 'bad';
-      };
-
-      const colorByHealth = (node) => {
-        const status = getHealthStatus(node);
-        if (status === 'good') return GOOD;
-        if (status === 'warn') return WARN;
-        if (status === 'bad') return BAD;
-        return NEUTRAL;
-      };
-
-      const sizeBy = (nodeId, nodes, edges, minSize = 24, maxSize = 140) => {
+      const sizeBy = (nodeId, nodes, edges, minSize = 20, maxSize = 90) => {
         const node = nodes.find((n) => n.id === nodeId) || {};
         const degree = edges.filter((e) => e.source === nodeId || e.target === nodeId).length;
         const weight = Number(node._weight || 0);
@@ -369,11 +193,11 @@
           if (!node) return;
           const line = (k, v) => { const div = document.createElement('div'); div.className = 'metric-line'; div.innerHTML = `<span class="k">${k}</span><span class="v">${v}</span>`; return div; };
           const title = document.createElement('div'); title.style.fontWeight = '700'; title.style.marginBottom = '4px'; title.innerText = node.id; this.nodeDetail.appendChild(title);
-          if (node._value != null) this.nodeDetail.appendChild(line('当前', `${node._value}${node._unit || ''}`));
-          if (node._target != null) this.nodeDetail.appendChild(line('目标', `${node._target}${node._unit || ''}`));
-          const status = getHealthStatus(node); this.nodeDetail.appendChild(line('健康', status));
-          if (node._domain) this.nodeDetail.appendChild(line('域', node._domain));
-          if (node._owner) this.nodeDetail.appendChild(line('负责人', node._owner));
+          if (node._description) this.nodeDetail.appendChild(line('说明', node._description));
+          if (node._domain) this.nodeDetail.appendChild(line('业务域', node._domain));
+          if (node._category) this.nodeDetail.appendChild(line('类型', node._category));
+          if (node._level != null) this.nodeDetail.appendChild(line('层级', `L${node._level}`));
+          if (node._weight != null) this.nodeDetail.appendChild(line('权重', node._weight));
         };
         onNodeClick = (event) => { const { target } = event; const { graph } = this.context; const data = graph.getNodeData(target.id); this.appendDetail(data); };
         onCanvasClick = () => { removeElement(this.nodeDetail); };
@@ -388,8 +212,17 @@
 
       const contextmenuOption = { type: 'contextmenu', trigger: 'contextmenu', onClick: (v, element, target) => { if (v === 'reference-network') graph.emit('node:click', { target, targetType: 'node', direction: 'out' }); if (v === 'citation-network') graph.emit('node:click', { target, targetType: 'node', direction: 'in' }); if (v === 'direct-neighbors') graph.emit('node:click', { target, targetType: 'node', onlyNeighbors: true }); graph.fitView(); }, getItems: () => ([{ name: '下游影响网络', value: 'reference-network' }, { name: '上游依赖网络', value: 'citation-network' }, { name: '直接邻居', value: 'direct-neighbors' }]), enable: (e) => e.targetType === 'node' };
 
-      const colorOfEdge = (e) => { if (e._type === 'rollup') return ROLLUP_EDGE; if (e._type === 'influences') return INFLU_EDGE; return UNI_EDGE; };
-      const lineDashOf = (e) => { if (e._type === 'influences') return [6, 6]; if (e._type === 'correlates') return [2, 4]; return undefined; };
+      const colorOfEdge = (e) => {
+        if (e._type === 'rollup') return '#6366f1'; // 紫色，表示聚合关系
+        if (e._type === 'influences') return '#0891b2'; // 蓝色，表示影响关系
+        if (e._type === 'depends') return '#dc2626'; // 红色，表示依赖关系
+        return '#94a3b8'; // 默认灰色
+      };
+      const lineDashOf = (e) => {
+        if (e._type === 'influences') return [6, 6]; // 影响关系用虚线
+        if (e._type === 'depends') return [3, 3]; // 依赖关系用短虚线
+        return undefined; // rollup用实线
+      };
 
       // 先注册插件
       G6.register('plugin', 'search-bar', SearchBar);
@@ -410,17 +243,25 @@
           node: {
             style: {
               size: (d) => sizeBy(d.id, data.nodes, data.edges),
-              fill: (d) => colorByHealth(d),
+              fill: (d) => colorByCategory(d),
               iconFontFamily: 'iconfont',
-              iconText: (d) => (d._type === 'metric' ? '\ue7b0' : '\ue6ab'),
+              iconText: (d) => {
+                if (d._category === 'business_target') return '\uE65F'; // 目标
+                if (d._category === 'core_metric') return '\uE7B0'; // 指标
+                if (d._category === 'segment' || d._category === 'platform') return '\uE6AB'; // 平台
+                if (d._category === 'user_group' || d._category === 'user_type') return '\uE65D'; // 用户
+                if (d._category === 'conversion_factor' || d._type === 'factor') return '\uE6CA'; // 因子
+                if (d._category === 'marketing_tool' || d._type === 'tool') return '\uE6BB'; // 工具
+                return '\uE7B0';
+              },
               label: true,
-              labelText: (d) => d._value != null ? `${d.id}  ${d._value}${d._unit || ''}` : d.id,
-              labelFontSize: 12,
+              labelText: (d) => d._description ? `${d.id}\n${d._description}` : d.id,
+              labelFontSize: 11,
               labelBackground: true,
               labelBackgroundFill: '#e5e7eb',
               labelPadding: [0, 6],
               labelBackgroundRadius: 4,
-              labelMaxWidth: '400%',
+              labelMaxWidth: '300%',
               labelWordWrap: true
             },
             state: {
@@ -441,7 +282,7 @@
             }
           },
           layout: [
-            { type: 'antv-dagre', rankdir: 'RL', ranksep: 50, nodesep: 20, controlPoints: true, nodeSize: (d) => 30 },
+            { type: 'antv-dagre', rankdir: 'LR', ranksep: 120, nodesep: 12, controlPoints: true, nodeSize: (d) => 24 },
           ],
           behaviors: ['drag-element', 'drag-canvas', 'zoom-canvas', 'click-element'],
           plugins: [toolbarOption, contextmenuOption, 'search-bar', 'detail-content']
@@ -461,13 +302,61 @@
         } catch (e) { return null; }
       };
 
+      let lastKnownModified = null;
+      let refreshInterval = null;
+
+      const loadAndRenderGraph = async () => {
+        // 优先尝试从Markdown解析API加载数据
+        let graphData = await fetchJsonSafe('http://localhost:3001/api/graph-data');
+        
+        // 如果API不可用，尝试静态JSON文件
+        if (!graphData) {
+          console.log('Markdown API不可用，尝试静态JSON文件');
+          const loadedNodes = await fetchJsonSafe('./data/nodes.json');
+          const loadedEdges = await fetchJsonSafe('./data/edges.json');
+          graphData = {
+            nodes: loadedNodes || defaultNodes,
+            edges: loadedEdges || defaultEdges
+          };
+        } else {
+          console.log('成功从Markdown解析API加载数据');
+        }
+
+        // 如果已有图实例，销毁后重建
+        if (graph) {
+          graph.destroy();
+        }
+        graph = await buildGraph(graphData);
+      };
+
+      const checkForUpdates = async () => {
+        try {
+          const status = await fetchJsonSafe('http://localhost:3001/api/status');
+          if (status && status.lastModified && status.lastModified !== lastKnownModified) {
+            console.log('检测到datas.md文件变化，重新加载图谱');
+            lastKnownModified = status.lastModified;
+            await loadAndRenderGraph();
+          }
+        } catch (error) {
+          console.log('无法检查文件状态，API可能不可用');
+        }
+      };
+
       const main = async () => {
-        // 优先尝试加载外部 JSON 数据
-        const loadedNodes = await fetchJsonSafe('./data/nodes.json');
-        const loadedEdges = await fetchJsonSafe('./data/edges.json');
-        const nodes = loadedNodes || defaultNodes;
-        const edges = loadedEdges || defaultEdges;
-        await buildGraph({ nodes, edges });
+        await loadAndRenderGraph();
+        
+        // 启动定期检查文件变化
+        refreshInterval = setInterval(checkForUpdates, 2000);
+        
+        // 获取初始文件状态
+        try {
+          const status = await fetchJsonSafe('http://localhost:3001/api/status');
+          if (status && status.lastModified) {
+            lastKnownModified = status.lastModified;
+          }
+        } catch (error) {
+          console.log('无法获取初始文件状态');
+        }
       };
 
       main();

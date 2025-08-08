@@ -1,93 +1,415 @@
 [
-  { "from": "订单数", "to": "GMV", "_type": "rollup", "_impact": 0.6 },
-  { "from": "AOV", "to": "GMV", "_type": "rollup", "_impact": 0.4 },
-
-  { "from": "访客数UV", "to": "订单数", "_type": "depends", "_impact": 0.5 },
-  { "from": "整体CVR", "to": "订单数", "_type": "depends", "_impact": 0.5 },
-
-  { "from": "自然UV", "to": "访客数UV", "_type": "rollup", "_impact": 0.6 },
-  { "from": "付费UV", "to": "访客数UV", "_type": "rollup", "_impact": 0.4 },
-  { "from": "曝光", "to": "自然UV", "_type": "influences", "_impact": 0.4 },
-  { "from": "CTR", "to": "自然UV", "_type": "influences", "_impact": 0.6 },
-  { "from": "投放预算金额", "to": "付费UV", "_type": "influences", "_impact": 0.7 },
-  { "from": "品牌搜索指数", "to": "自然UV", "_type": "influences", "_impact": 0.4 },
-  { "from": "声量SOV", "to": "品牌搜索指数", "_type": "influences", "_impact": 0.5 },
-
-  { "from": "落地页到达率", "to": "整体CVR", "_type": "depends", "_impact": 0.2 },
-  { "from": "跳失率", "to": "整体CVR", "_type": "influences", "_impact": 0.15 },
-  { "from": "PDP转化", "to": "整体CVR", "_type": "depends", "_impact": 0.32 },
-  { "from": "加购率", "to": "整体CVR", "_type": "depends", "_impact": 0.18 },
-  { "from": "加购转化", "to": "整体CVR", "_type": "depends", "_impact": 0.15 },
-  { "from": "支付转化", "to": "整体CVR", "_type": "depends", "_impact": 0.2 },
-  { "from": "支付成功率", "to": "支付转化", "_type": "depends", "_impact": 0.6 },
-  { "from": "退款率", "to": "整体CVR", "_type": "influences", "_impact": 0.08 },
-  { "from": "售后申请率", "to": "退款率", "_type": "influences", "_impact": 0.5 },
-
-  { "from": "件单价", "to": "AOV", "_type": "rollup", "_impact": 0.5 },
-  { "from": "件单量", "to": "AOV", "_type": "rollup", "_impact": 0.5 },
-  { "from": "连带率", "to": "件单量", "_type": "influences", "_impact": 0.5 },
-  { "from": "券使用率", "to": "件单量", "_type": "influences", "_impact": 0.3 },
-  { "from": "券领取率", "to": "券使用率", "_type": "influences", "_impact": 0.5 },
-  { "from": "促销参与率", "to": "券领取率", "_type": "influences", "_impact": 0.5 },
-  { "from": "价格指数", "to": "PDP转化", "_type": "influences", "_impact": 0.4 },
-  { "from": "比价胜率", "to": "PDP转化", "_type": "influences", "_impact": 0.3 },
-
-  { "from": "在架SKU", "to": "有效SKU", "_type": "influences", "_impact": 0.3 },
-  { "from": "有效SKU", "to": "PDP转化", "_type": "influences", "_impact": 0.2 },
-  { "from": "动销率", "to": "有效SKU", "_type": "influences", "_impact": 0.3 },
-  { "from": "断货率", "to": "加购率", "_type": "influences", "_impact": 0.2 },
-  { "from": "商品评分", "to": "PDP转化", "_type": "influences", "_impact": 0.2 },
-  { "from": "详情完读率", "to": "PDP转化", "_type": "influences", "_impact": 0.2 },
-
-  { "from": "总库存", "to": "断货率", "_type": "influences", "_impact": 0.2 },
-  { "from": "有效库存", "to": "断货率", "_type": "influences", "_impact": 0.4 },
-  { "from": "可售天数", "to": "断货率", "_type": "influences", "_impact": 0.2 },
-  { "from": "库存周转天数", "to": "价格指数", "_type": "influences", "_impact": 0.1 },
-  { "from": "预测准确率", "to": "断货率", "_type": "influences", "_impact": 0.2 },
-  { "from": "补货及时率", "to": "断货率", "_type": "influences", "_impact": 0.2 },
-
-  { "from": "发货时效", "to": "准时达率", "_type": "influences", "_impact": 0.3 },
-  { "from": "揽收时效", "to": "准时达率", "_type": "influences", "_impact": 0.2 },
-  { "from": "干线时效", "to": "准时达率", "_type": "influences", "_impact": 0.25 },
-  { "from": "派送时效", "to": "准时达率", "_type": "influences", "_impact": 0.25 },
-  { "from": "破损率", "to": "售后申请率", "_type": "influences", "_impact": 0.3 },
-  { "from": "丢件率", "to": "售后申请率", "_type": "influences", "_impact": 0.3 },
-  { "from": "准时达率", "to": "复购率", "_type": "influences", "_impact": 0.3 },
-  { "from": "复购率", "to": "整体CVR", "_type": "influences", "_impact": 0.2 },
-
-  { "from": "活跃商家数", "to": "在架SKU", "_type": "influences", "_impact": 0.3 },
-  { "from": "商家履约SLA达成率", "to": "准时达率", "_type": "influences", "_impact": 0.2 },
-  { "from": "商家违规率", "to": "退款率", "_type": "influences", "_impact": 0.1 },
-
-  { "from": "一次解决率FCR", "to": "CSAT", "_type": "influences", "_impact": 0.4 },
-  { "from": "首响时间", "to": "CSAT", "_type": "influences", "_impact": 0.3 },
-  { "from": "投诉率", "to": "CSAT", "_type": "influences", "_impact": 0.3 },
-  { "from": "CSAT", "to": "复购率", "_type": "influences", "_impact": 0.2 },
-  { "from": "NPS", "to": "品牌搜索指数", "_type": "influences", "_impact": 0.2 },
-
-  { "from": "拦截率", "to": "支付成功率", "_type": "influences", "_impact": 0.2 },
-  { "from": "误杀率", "to": "支付成功率", "_type": "influences", "_impact": 0.2 },
-  { "from": "拒付率", "to": "支付成功率", "_type": "influences", "_impact": 0.2 },
-
-  { "from": "可用率", "to": "下单接口TP99", "_type": "influences", "_impact": 0.2 },
-  { "from": "白屏率", "to": "跳失率", "_type": "influences", "_impact": 0.2 },
-  { "from": "崩溃率", "to": "跳失率", "_type": "influences", "_impact": 0.2 },
-
-  { "from": "交易佣金金额", "to": "收入", "_type": "rollup", "_impact": 0.35 },
-  { "from": "平台佣金率", "to": "交易佣金金额", "_type": "influences", "_impact": 0.5 },
-  { "from": "广告收入金额", "to": "收入", "_type": "rollup", "_impact": 0.2 },
-  { "from": "服务费金额", "to": "收入", "_type": "rollup", "_impact": 0.2 },
-  { "from": "物流收入金额", "to": "收入", "_type": "rollup", "_impact": 0.25 },
-
-  { "from": "营销成本金额", "to": "成本", "_type": "rollup", "_impact": 0.25 },
-  { "from": "履约成本金额", "to": "成本", "_type": "rollup", "_impact": 0.3 },
-  { "from": "仓储成本金额", "to": "成本", "_type": "rollup", "_impact": 0.15 },
-  { "from": "客服成本金额", "to": "成本", "_type": "rollup", "_impact": 0.1 },
-  { "from": "技术成本金额", "to": "成本", "_type": "rollup", "_impact": 0.1 },
-  { "from": "补贴成本金额", "to": "成本", "_type": "rollup", "_impact": 0.1 },
-
-  { "from": "收入", "to": "净利", "_type": "rollup", "_impact": 0.6 },
-  { "from": "成本", "to": "净利", "_type": "rollup", "_impact": 0.4 }
+  {
+    "from": "DAU",
+    "to": "有效订单量",
+    "_type": "rollup",
+    "_impact": 0.25,
+    "_description": "DAU直接构成有效订单量的基础"
+  },
+  {
+    "from": "访购率",
+    "to": "有效订单量", 
+    "_type": "rollup",
+    "_impact": 0.25,
+    "_description": "访购率决定DAU到订单的转化"
+  },
+  {
+    "from": "下单频次",
+    "to": "有效订单量",
+    "_type": "rollup", 
+    "_impact": 0.25,
+    "_description": "用户平均下单次数影响总订单量"
+  },
+  {
+    "from": "笔单价",
+    "to": "有效订单量",
+    "_type": "rollup",
+    "_impact": 0.25,
+    "_description": "客单价影响订单价值"
+  },
+  {
+    "from": "闪购DAU",
+    "to": "DAU",
+    "_type": "rollup",
+    "_impact": 0.6,
+    "_description": "闪购业务贡献主要DAU"
+  },
+  {
+    "from": "非闪购DAU",
+    "to": "DAU",
+    "_type": "rollup",
+    "_impact": 0.4,
+    "_description": "非闪购业务DAU贡献"
+  },
+  {
+    "from": "ET端DAU",
+    "to": "闪购DAU",
+    "_type": "rollup",
+    "_impact": 0.6,
+    "_description": "ET端是闪购主要平台"
+  },
+  {
+    "from": "EA端DAU",
+    "to": "闪购DAU", 
+    "_type": "rollup",
+    "_impact": 0.4,
+    "_description": "EA端闪购DAU贡献"
+  },
+  {
+    "from": "饿了么APP DAU",
+    "to": "非闪购DAU",
+    "_type": "rollup",
+    "_impact": 0.5,
+    "_description": "主APP的非闪购DAU"
+  },
+  {
+    "from": "微信小程序DAU",
+    "to": "非闪购DAU",
+    "_type": "rollup",
+    "_impact": 0.3,
+    "_description": "小程序DAU贡献"
+  },
+  {
+    "from": "其他端DAU",
+    "to": "非闪购DAU",
+    "_type": "rollup", 
+    "_impact": 0.2,
+    "_description": "其他端口DAU"
+  },
+  {
+    "from": "新客DAU-L126",
+    "to": "ET端DAU",
+    "_type": "rollup",
+    "_impact": 0.4,
+    "_description": "新客在ET端的分布"
+  },
+  {
+    "from": "老客DAU-L3",
+    "to": "ET端DAU",
+    "_type": "rollup",
+    "_impact": 0.3,
+    "_description": "L3老客在ET端分布"
+  },
+  {
+    "from": "老客DAU-L45", 
+    "to": "ET端DAU",
+    "_type": "rollup",
+    "_impact": 0.2,
+    "_description": "L45老客在ET端分布"
+  },
+  {
+    "from": "特殊人群DAU",
+    "to": "ET端DAU",
+    "_type": "rollup",
+    "_impact": 0.1,
+    "_description": "特殊人群在ET端分布"
+  },
+  {
+    "from": "新客DAU-L126",
+    "to": "EA端DAU",
+    "_type": "rollup",
+    "_impact": 0.3,
+    "_description": "新客在EA端分布"
+  },
+  {
+    "from": "老客DAU-L3",
+    "to": "EA端DAU",
+    "_type": "rollup",
+    "_impact": 0.35,
+    "_description": "L3老客在EA端分布"
+  },
+  {
+    "from": "老客DAU-L45",
+    "to": "EA端DAU",
+    "_type": "rollup",
+    "_impact": 0.25,
+    "_description": "L45老客在EA端分布"
+  },
+  {
+    "from": "特殊人群DAU",
+    "to": "EA端DAU",
+    "_type": "rollup", 
+    "_impact": 0.1,
+    "_description": "特殊人群在EA端分布"
+  },
+  {
+    "from": "新客DAU-L126",
+    "to": "饿了么APP DAU",
+    "_type": "rollup",
+    "_impact": 0.35,
+    "_description": "新客在主APP的分布"
+  },
+  {
+    "from": "老客DAU-L3",
+    "to": "饿了么APP DAU",
+    "_type": "rollup",
+    "_impact": 0.3,
+    "_description": "L3老客在主APP分布"
+  },
+  {
+    "from": "老客DAU-L45",
+    "to": "饿了么APP DAU",
+    "_type": "rollup",
+    "_impact": 0.25,
+    "_description": "L45老客在主APP分布"
+  },
+  {
+    "from": "特殊人群DAU",
+    "to": "饿了么APP DAU",
+    "_type": "rollup",
+    "_impact": 0.1,
+    "_description": "特殊人群在主APP分布"
+  },
+  {
+    "from": "新客DAU-L126",
+    "to": "微信小程序DAU",
+    "_type": "rollup",
+    "_impact": 0.4,
+    "_description": "新客在小程序分布"
+  },
+  {
+    "from": "老客DAU-L3",
+    "to": "微信小程序DAU",
+    "_type": "rollup",
+    "_impact": 0.3,
+    "_description": "L3老客在小程序分布"
+  },
+  {
+    "from": "老客DAU-L45",
+    "to": "微信小程序DAU",
+    "_type": "rollup",
+    "_impact": 0.2,
+    "_description": "L45老客在小程序分布"
+  },
+  {
+    "from": "特殊人群DAU",
+    "to": "微信小程序DAU",
+    "_type": "rollup",
+    "_impact": 0.1,
+    "_description": "特殊人群在小程序分布"
+  },
+  {
+    "from": "心智用户",
+    "to": "新客DAU-L126",
+    "_type": "rollup",
+    "_impact": 0.6,
+    "_description": "心智用户构成新客主体"
+  },
+  {
+    "from": "非心智用户",
+    "to": "新客DAU-L126",
+    "_type": "rollup",
+    "_impact": 0.4,
+    "_description": "非心智新客用户"
+  },
+  {
+    "from": "摇摆用户",
+    "to": "特殊人群DAU",
+    "_type": "rollup",
+    "_impact": 0.4,
+    "_description": "摇摆用户占特殊人群比例"
+  },
+  {
+    "from": "异地用户", 
+    "to": "特殊人群DAU",
+    "_type": "rollup",
+    "_impact": 0.3,
+    "_description": "异地用户占特殊人群比例"
+  },
+  {
+    "from": "学生用户",
+    "to": "特殊人群DAU",
+    "_type": "rollup",
+    "_impact": 0.3,
+    "_description": "学生用户占特殊人群比例"
+  },
+  {
+    "from": "渠道A",
+    "to": "心智用户",
+    "_type": "influences",
+    "_impact": 0.5,
+    "_description": "渠道A对心智用户获取的影响"
+  },
+  {
+    "from": "渠道B",
+    "to": "心智用户",
+    "_type": "influences",
+    "_impact": 0.3,
+    "_description": "渠道B对心智用户获取的影响"
+  },
+  {
+    "from": "渠道A",
+    "to": "非心智用户",
+    "_type": "influences",
+    "_impact": 0.4,
+    "_description": "渠道A对非心智用户的影响"
+  },
+  {
+    "from": "渠道B",
+    "to": "非心智用户",
+    "_type": "influences",
+    "_impact": 0.4,
+    "_description": "渠道B对非心智用户的影响"
+  },
+  {
+    "from": "营销补贴",
+    "to": "访购率",
+    "_type": "influences",
+    "_impact": 0.4,
+    "_description": "营销补贴直接影响转化率"
+  },
+  {
+    "from": "供给丰富度",
+    "to": "访购率",
+    "_type": "influences",
+    "_impact": 0.35,
+    "_description": "供给丰富度影响用户购买意愿"
+  },
+  {
+    "from": "营销工具渗透",
+    "to": "访购率",
+    "_type": "influences",
+    "_impact": 0.15,
+    "_description": "营销工具提升转化率"
+  },
+  {
+    "from": "物流体验",
+    "to": "访购率",
+    "_type": "influences",
+    "_impact": 0.1,
+    "_description": "物流体验影响复购转化"
+  },
+  {
+    "from": "发放形式",
+    "to": "营销补贴",
+    "_type": "depends",
+    "_impact": 0.4,
+    "_description": "补贴发放形式影响效果"
+  },
+  {
+    "from": "发放渠道",
+    "to": "营销补贴",
+    "_type": "depends",
+    "_impact": 0.3,
+    "_description": "发放渠道决定触达效果"
+  },
+  {
+    "from": "玩法大类",
+    "to": "营销补贴",
+    "_type": "depends",
+    "_impact": 0.3,
+    "_description": "玩法设计影响补贴效果"
+  },
+  {
+    "from": "营业商户数",
+    "to": "供给丰富度", 
+    "_type": "rollup",
+    "_impact": 0.4,
+    "_description": "商户数量决定供给基础"
+  },
+  {
+    "from": "商户营业率",
+    "to": "供给丰富度",
+    "_type": "rollup",
+    "_impact": 0.3,
+    "_description": "营业率影响实际供给"
+  },
+  {
+    "from": "营业落收",
+    "to": "供给丰富度",
+    "_type": "rollup",
+    "_impact": 0.2,
+    "_description": "落收情况反映供给质量"
+  },
+  {
+    "from": "热销品下架",
+    "to": "供给丰富度",
+    "_type": "influences",
+    "_impact": 0.1,
+    "_description": "热销品下架负向影响供给"
+  },
+  {
+    "from": "爆单红包",
+    "to": "营销工具渗透",
+    "_type": "rollup",
+    "_impact": 0.3,
+    "_description": "爆单红包工具使用"
+  },
+  {
+    "from": "阶梯A", 
+    "to": "营销工具渗透",
+    "_type": "rollup",
+    "_impact": 0.25,
+    "_description": "阶梯玩法渗透率"
+  },
+  {
+    "from": "5元红包",
+    "to": "营销工具渗透",
+    "_type": "rollup",
+    "_impact": 0.25,
+    "_description": "5元红包使用情况"
+  },
+  {
+    "from": "大额券",
+    "to": "营销工具渗透",
+    "_type": "rollup",
+    "_impact": 0.2,
+    "_description": "大额券渗透情况"
+  },
+  {
+    "from": "列表T",
+    "to": "物流体验",
+    "_type": "influences",
+    "_impact": 0.2,
+    "_description": "预期配送时间影响体验"
+  },
+  {
+    "from": "实际T",
+    "to": "物流体验",
+    "_type": "influences",
+    "_impact": 0.3,
+    "_description": "实际配送时间决定体验"
+  },
+  {
+    "from": "出餐T4准时率",
+    "to": "物流体验",
+    "_type": "influences",
+    "_impact": 0.25,
+    "_description": "准时出餐率影响体验"
+  },
+  {
+    "from": "20min超时率",
+    "to": "物流体验",
+    "_type": "influences",
+    "_impact": 0.15,
+    "_description": "超时率负向影响体验"
+  },
+  {
+    "from": "运力线产能",
+    "to": "物流体验",
+    "_type": "influences", 
+    "_impact": 0.1,
+    "_description": "运力产能保障体验"
+  },
+  {
+    "from": "物流体验",
+    "to": "下单频次",
+    "_type": "influences",
+    "_impact": 0.3,
+    "_description": "好的物流体验促进复购"
+  },
+  {
+    "from": "营销工具渗透",
+    "to": "笔单价",
+    "_type": "influences",
+    "_impact": 0.4,
+    "_description": "营销工具提升客单价"
+  },
+  {
+    "from": "供给丰富度",
+    "to": "笔单价", 
+    "_type": "influences",
+    "_impact": 0.3,
+    "_description": "丰富供给支撑高客单"
+  }
 ]
-
-
