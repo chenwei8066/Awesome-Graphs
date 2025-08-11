@@ -124,8 +124,6 @@
           '营销补贴', '供给丰富度', '物流体验',  // L2
           '发放形式', '发放渠道', '热销品下架', '20min超时率',  // L3
           '特殊人群DAU',       // L4
-          '摇摆用户', '异地用户',  // L5
-          '渠道A', '渠道B',     // L6
           // 根据图片新增的红圈节点
           '访购率-内购-分流-ET-新客-L126',
           '访购率-内购-分流-ET',
@@ -142,9 +140,23 @@
         return redNodes.includes(nodeId);
       };
 
-      // 访购率红色问题链路 - 完整的下游影响链
+      // 橙色预警节点判断函数
+      const isOrangeNode = (nodeId) => {
+        const orangeNodes = [
+          '下单频次',         // L1 - 核心指标预警
+          '微信小程序DAU',     // L3 - 平台预警
+          '营业商户数',       // L3 - 供给预警
+          '列表T',           // L3 - 物流预警
+          '老客DAU-L3'       // L4 - 用户群体预警
+        ];
+        return orangeNodes.includes(nodeId);
+      };
+
+      // 节点颜色判断 - 红色/橙色/绿色三级体系
       const colorByHealthStatus = (node) => {
-        return isRedNode(node.id) ? '#dc2626' : '#059669'; // 红色或绿色
+        if (isRedNode(node.id)) return '#dc2626';     // 红色 - 严重问题
+        if (isOrangeNode(node.id)) return '#f59e0b';  // 橙色 - 预警状态
+        return '#059669';                             // 绿色 - 正常状态
       };
 
 
@@ -420,6 +432,7 @@
           const { direction = 'out', onlyNeighbors } = event;
           const nodeId = event.target.id; const { graph } = this.context; const { nodes, edges } = graph.getData();
           let relatedIds;
+          
           if (onlyNeighbors) {
             const neighborNodes = graph.getNeighborNodesData(nodeId);
             const neighborEdges = graph.getRelatedEdgesData(nodeId);
@@ -433,8 +446,15 @@
             relatedIds = Object.keys(levels);
             graph.updateNodeData(prev => prev.filter(n => relatedIds.includes(n.id) && (n.style.level = levels[n.id])));
             graph.updateEdgeData(prev => prev.filter(e => (levels[e.source] || levels[e.target]) && (e.style.level = Math.min(levels[e.source], levels[e.target]))));
-            const states = {}; nodes.forEach(n => states[n.id] = relatedIds.includes(n.id) ? ['link'] : ['inactive']);
-            edges.forEach(e => states[idOf(e)] = relatedIds.includes(e.source) && relatedIds.includes(e.target) ? ['link'] : ['inactive']);
+            
+            const states = {}; 
+            nodes.forEach(n => states[n.id] = relatedIds.includes(n.id) ? ['link'] : ['inactive']);
+            // 修改边高亮逻辑：只要边连接到选中节点就高亮
+            edges.forEach(e => {
+              const isConnectedToSelected = (e.source === nodeId || e.target === nodeId);
+              const isInRelatedPath = relatedIds.includes(e.source) && relatedIds.includes(e.target);
+              states[idOf(e)] = (isConnectedToSelected || isInRelatedPath) ? ['link'] : ['inactive'];
+            });
             await graph.setElementState(states);
           }
         };
@@ -561,12 +581,23 @@
       const contextmenuOption = { type: 'contextmenu', trigger: 'contextmenu', onClick: (v, element, target) => { if (v === 'reference-network') graph.emit('node:click', { target, targetType: 'node', direction: 'out' }); if (v === 'citation-network') graph.emit('node:click', { target, targetType: 'node', direction: 'in' }); if (v === 'direct-neighbors') graph.emit('node:click', { target, targetType: 'node', onlyNeighbors: true }); graph.fitView(); }, getItems: () => ([{ name: '下游影响网络', value: 'reference-network' }, { name: '上游依赖网络', value: 'citation-network' }, { name: '直接邻居', value: 'direct-neighbors' }]), enable: (e) => e.targetType === 'node' };
 
       const colorOfEdge = (e) => {
-        // 如果连接的两个节点都是红色问题节点，连线也用红色
-        const sourceIsRed = isRedNode(e.source || e.from);
-        const targetIsRed = isRedNode(e.target || e.to);
+        const sourceId = e.source || e.from;
+        const targetId = e.target || e.to;
         
-        if (sourceIsRed && targetIsRed) {
-          return '#dc2626'; // 红色 - 问题传导路径
+        // 如果连接的两个节点都是红色，连线用红色
+        if (isRedNode(sourceId) && isRedNode(targetId)) {
+          return '#dc2626'; // 红色 - 严重问题传导
+        }
+        
+        // 如果有一个是红色，一个是橙色，连线用红色
+        if ((isRedNode(sourceId) && isOrangeNode(targetId)) || 
+            (isOrangeNode(sourceId) && isRedNode(targetId))) {
+          return '#dc2626'; // 红色 - 问题传导到预警
+        }
+        
+        // 如果连接的两个节点都是橙色，连线用橙色
+        if (isOrangeNode(sourceId) && isOrangeNode(targetId)) {
+          return '#f59e0b'; // 橙色 - 预警传导路径
         }
         
         // 默认都用灰色
