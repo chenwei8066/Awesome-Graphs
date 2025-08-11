@@ -532,22 +532,308 @@
             div.innerHTML = `<div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">${k}</div>${valueSpan}`; 
             return div; 
           };
+
+          const sectionTitle = (title) => {
+            const div = document.createElement('div');
+            div.style.cssText = 'font-weight: 700; font-size: 15px; color: #374151; margin: 20px 0 12px 0; padding-bottom: 6px; border-bottom: 2px solid #e5e7eb;';
+            div.textContent = title;
+            return div;
+          };
+
+          // 当前指标值
+          const mockCurrentValue = this.getMockCurrentValue(node);
+          const healthStatus = this.getHealthStatus(node);
           
-          // 显示健康状态
-          if (node._status || node._health) {
-            const status = node._status || node._health;
-            const statusText = status === 'healthy' ? '健康' : 
-                              status === 'warning' ? '预警' : 
-                              status === 'problem' ? '异常' : '未知';
-            const statusColor = colorByHealthStatus(node);
-            this.detailContent.appendChild(line('健康状态', statusText, statusColor));
+          // 创建紧凑的当前值显示
+          const currentValueDiv = document.createElement('div');
+          currentValueDiv.style.cssText = 'background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 16px;';
+          currentValueDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-size: 24px; font-weight: 700; color: #111827;">${mockCurrentValue.value}</span>
+              <span style="font-size: 14px; font-weight: 600; color: ${healthStatus.color}; background: rgba(${healthStatus.color === '#dc2626' ? '220,38,38' : healthStatus.color === '#f59e0b' ? '245,158,11' : '5,150,105'}, 0.1); padding: 2px 8px; border-radius: 4px;">${healthStatus.text}</span>
+            </div>
+            <div style="font-size: 14px; color: ${mockCurrentValue.changeColor}; font-weight: 600;">
+              ${mockCurrentValue.change} 环比
+            </div>
+          `;
+          this.detailContent.appendChild(currentValueDiv);
+
+          // 下级指标值（紧凑显示）
+          const subMetrics = this.getSubMetrics(node);
+          if (subMetrics.length > 0) {
+            const subMetricsDiv = document.createElement('div');
+            subMetricsDiv.style.cssText = 'margin-bottom: 16px;';
+            subMetricsDiv.innerHTML = `
+              <div style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 12px;">下级指标</div>
+              ${subMetrics.map(metric => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin-bottom: 4px; background: #ffffff; border: 1px solid #f3f4f6; border-radius: 6px;">
+                  <span style="font-size: 13px; color: #374151; font-weight: 500;">${metric.name}</span>
+                  <span style="font-size: 13px; color: #111827; font-weight: 600;">${metric.value}</span>
+                </div>
+              `).join('')}
+            `;
+            this.detailContent.appendChild(subMetricsDiv);
+          }
+
+          // 历史趋势图
+          const trendTitle = document.createElement('div');
+          trendTitle.style.cssText = 'font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 12px;';
+          trendTitle.textContent = '历史趋势';
+          this.detailContent.appendChild(trendTitle);
+          this.detailContent.appendChild(this.createTrendChart(node));
+
+          // 负责团队
+          const teamInfo = this.getTeamInfo(node);
+          if (teamInfo) {
+            const teamDiv = document.createElement('div');
+            teamDiv.style.cssText = 'margin-top: 20px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #f3f4f6;';
+            teamDiv.innerHTML = `
+              <div style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 12px;">负责团队</div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 13px; color: #6b7280;">团队</span>
+                <span style="font-size: 13px; color: #111827; font-weight: 500;">${teamInfo.team}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 13px; color: #6b7280;">负责人</span>
+                <span style="font-size: 13px; color: #111827; font-weight: 500;">${teamInfo.owner}</span>
+              </div>
+            `;
+            this.detailContent.appendChild(teamDiv);
+          }
+        };
+
+        // 获取团队信息（模拟数据）
+        getTeamInfo = (node) => {
+          const teams = [
+            { team: '数据分析团队', owner: '张三' },
+            { team: '产品运营团队', owner: '李四' },
+            { team: '市场营销团队', owner: '王五' },
+            { team: '用户增长团队', owner: '赵六' },
+            { team: '供应链团队', owner: '钱七' },
+            { team: '物流配送团队', owner: '孙八' }
+          ];
+          
+          // 根据节点ID哈希选择团队
+          const index = node.id.charCodeAt(0) % teams.length;
+          return teams[index];
+        };
+
+        // 获取模拟的当前指标值
+        getMockCurrentValue = (node) => {
+          const baseValues = {
+            '有效订单量': { value: '1.2M', change: '+5.3%', isPositive: true },
+            '访购率': { value: '12.5%', change: '-2.1%', isPositive: false },
+            'DAU': { value: '850K', change: '+8.7%', isPositive: true },
+            '下单频次': { value: '2.8', change: '-1.2%', isPositive: false },
+            '笔单价': { value: '¥45.6', change: '+3.4%', isPositive: true }
+          };
+          
+          const defaultValue = {
+            value: Math.floor(Math.random() * 1000) + 'K',
+            change: (Math.random() > 0.5 ? '+' : '-') + (Math.random() * 10).toFixed(1) + '%',
+            isPositive: Math.random() > 0.5
+          };
+          
+          const data = baseValues[node.id] || defaultValue;
+          return {
+            value: data.value,
+            change: data.change,
+            color: '#111827',
+            changeColor: data.isPositive ? '#059669' : '#dc2626'
+          };
+        };
+
+        // 获取健康状态
+        getHealthStatus = (node) => {
+          if (isRedNode(node.id)) {
+            return { text: '异常', color: '#dc2626' };
+          }
+          if (isOrangeNode(node.id)) {
+            return { text: '预警', color: '#f59e0b' };
+          }
+          return { text: '健康', color: '#059669' };
+        };
+
+        // 获取下级指标（指向当前节点的节点）
+        getSubMetrics = (node) => {
+          const { graph } = this.context;
+          const { edges } = graph.getData();
+          
+          // 找到当前节点指向的节点（下级节点/组成部分）
+          const subNodes = [];
+          edges.forEach(edge => {
+            if (edge.source === node.id) {
+              subNodes.push({
+                name: edge.target,
+                value: Math.floor(Math.random() * 100) + '%',
+                color: '#6b7280'
+              });
+            }
+          });
+          return subNodes.slice(0, 5); // 最多显示5个
+        };
+
+        // 创建趋势图
+        createTrendChart = (node) => {
+          const container = document.createElement('div');
+          container.style.cssText = 'width: 100%; height: 120px; background: #ffffff; border: 1px solid #f3f4f6; border-radius: 6px; position: relative; overflow: hidden; padding: 12px;';
+          
+          // 生成更真实的30天趋势数据
+          const points = [];
+          let baseValue = 60 + Math.random() * 20; // 基础值在60-80之间
+          const trend = (Math.random() - 0.5) * 0.5; // 整体趋势
+          
+          for (let i = 0; i < 30; i++) {
+            // 添加趋势性变化
+            const trendEffect = trend * i;
+            // 添加周期性变化（模拟周末效应）
+            const cycleEffect = Math.sin((i * 2 * Math.PI) / 7) * 3;
+            // 添加随机噪声
+            const randomNoise = (Math.random() - 0.5) * 6;
+            
+            baseValue = baseValue + trendEffect + cycleEffect + randomNoise;
+            baseValue = Math.max(20, Math.min(95, baseValue));
+            points.push(baseValue);
           }
           
-          if (node._description) this.detailContent.appendChild(line('指标说明', node._description));
-          if (node._domain) this.detailContent.appendChild(line('业务域', node._domain));
-          if (node._category) this.detailContent.appendChild(line('指标类型', node._category));
-          if (node._level != null) this.detailContent.appendChild(line('层级', `L${node._level}`));
-          if (node._weight != null) this.detailContent.appendChild(line('权重', node._weight));
+          // 创建SVG
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('width', '100%');
+          svg.setAttribute('height', '96px');
+          svg.setAttribute('viewBox', '0 0 300 96');
+          svg.setAttribute('preserveAspectRatio', 'none');
+          svg.style.position = 'absolute';
+          svg.style.top = '12px';
+          svg.style.left = '12px';
+          svg.style.right = '12px';
+          svg.style.width = 'calc(100% - 24px)';
+          
+          // 添加网格线
+          const gridGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          gridGroup.setAttribute('opacity', '0.1');
+          
+          // 水平网格线
+          for (let i = 0; i <= 4; i++) {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', '0');
+            line.setAttribute('y1', (i * 96 / 4).toString());
+            line.setAttribute('x2', '300');
+            line.setAttribute('y2', (i * 96 / 4).toString());
+            line.setAttribute('stroke', '#94a3b8');
+            line.setAttribute('stroke-width', '1');
+            gridGroup.appendChild(line);
+          }
+          
+          // 垂直网格线（每周一条）
+          for (let i = 0; i <= 4; i++) {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            const x = (i * 300 / 4);
+            line.setAttribute('x1', x.toString());
+            line.setAttribute('y1', '0');
+            line.setAttribute('x2', x.toString());
+            line.setAttribute('y2', '96');
+            line.setAttribute('stroke', '#94a3b8');
+            line.setAttribute('stroke-width', '1');
+            gridGroup.appendChild(line);
+          }
+          
+          svg.appendChild(gridGroup);
+          
+          // 创建渐变填充区域
+          const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+          const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+          gradient.setAttribute('id', `gradient-${node.id.replace(/[^a-zA-Z0-9]/g, '')}`);
+          gradient.setAttribute('x1', '0%');
+          gradient.setAttribute('y1', '0%');
+          gradient.setAttribute('x2', '0%');
+          gradient.setAttribute('y2', '100%');
+          
+          const color = isRedNode(node.id) ? '#dc2626' : isOrangeNode(node.id) ? '#f59e0b' : '#059669';
+          
+          const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+          stop1.setAttribute('offset', '0%');
+          stop1.setAttribute('stop-color', color);
+          stop1.setAttribute('stop-opacity', '0.2');
+          
+          const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+          stop2.setAttribute('offset', '100%');
+          stop2.setAttribute('stop-color', color);
+          stop2.setAttribute('stop-opacity', '0');
+          
+          gradient.appendChild(stop1);
+          gradient.appendChild(stop2);
+          defs.appendChild(gradient);
+          svg.appendChild(defs);
+          
+          // 创建填充区域路径
+          const maxY = Math.max(...points);
+          const minY = Math.min(...points);
+          const range = maxY - minY;
+          const padding = range * 0.1;
+          
+          const normalizedPoints = points.map(p => {
+            return ((maxY + padding - p) / (range + 2 * padding)) * 96;
+          });
+          
+          const areaPath = normalizedPoints.map((point, index) => {
+            const x = (index / (points.length - 1)) * 300;
+            return `${index === 0 ? 'M' : 'L'} ${x} ${point}`;
+          }).join(' ');
+          
+          const areaPathData = areaPath + ` L 300 96 L 0 96 Z`;
+          
+          const areaPathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          areaPathElement.setAttribute('d', areaPathData);
+          areaPathElement.setAttribute('fill', `url(#gradient-${node.id.replace(/[^a-zA-Z0-9]/g, '')})`);
+          svg.appendChild(areaPathElement);
+          
+          // 创建主线路径
+          const linePathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          linePathElement.setAttribute('d', areaPath);
+          linePathElement.setAttribute('fill', 'none');
+          linePathElement.setAttribute('stroke', color);
+          linePathElement.setAttribute('stroke-width', '2.5');
+          linePathElement.setAttribute('stroke-linejoin', 'round');
+          linePathElement.setAttribute('stroke-linecap', 'round');
+          
+          svg.appendChild(linePathElement);
+          
+          // 添加数据点
+          normalizedPoints.forEach((point, index) => {
+            if (index % 3 === 0 || index === normalizedPoints.length - 1) { // 每3个点显示一个
+              const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+              circle.setAttribute('cx', ((index / (points.length - 1)) * 300).toString());
+              circle.setAttribute('cy', point.toString());
+              circle.setAttribute('r', '3');
+              circle.setAttribute('fill', '#ffffff');
+              circle.setAttribute('stroke', color);
+              circle.setAttribute('stroke-width', '2');
+              svg.appendChild(circle);
+            }
+          });
+          
+          container.appendChild(svg);
+          
+          // 添加时间标签
+          const timeLabels = document.createElement('div');
+          timeLabels.style.cssText = 'position: absolute; bottom: 4px; left: 12px; right: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #9ca3af;';
+          timeLabels.innerHTML = `
+            <span>30天前</span>
+            <span>15天前</span>
+            <span>今天</span>
+          `;
+          container.appendChild(timeLabels);
+          
+          // 添加数值范围标签
+          const valueLabels = document.createElement('div');
+          valueLabels.style.cssText = 'position: absolute; top: 12px; left: 2px; height: 96px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: #9ca3af;';
+          valueLabels.innerHTML = `
+            <span>${Math.round(maxY + padding)}</span>
+            <span>${Math.round(minY - padding)}</span>
+          `;
+          container.appendChild(valueLabels);
+          
+          return container;
         };
         
         onNodeClick = (event) => { 
