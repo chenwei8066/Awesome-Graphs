@@ -113,6 +113,166 @@
         return minSize + influence * (maxSize - minSize);
       };
 
+      class OrganicLayout extends G6.BaseLayout {
+        async execute(data) {
+          const { gap = 60, ranksep = 120, nodeSize = 40, verticalSpread = 0.4, randomOffset = 0.15 } = this.options;
+          const nodes = data.nodes.map(node => ({
+            id: node.id,
+            style: { ...node.style },
+            _level: node._level || 0,
+            _weight: node._weight || 0.5,
+            _category: node._category,
+            size: this.options.nodeSize ? this.options.nodeSize(node) : nodeSize
+          }));
+
+          // 按层级分组
+          const layersObject = {};
+          nodes.forEach(node => {
+            const level = node._level;
+            if (!(level in layersObject)) layersObject[level] = [];
+            layersObject[level].push(node);
+          });
+
+          // 处理孤立节点
+          const connectedNodes = new Set();
+          data.edges.forEach(edge => {
+            connectedNodes.add(edge.source);
+            connectedNodes.add(edge.target);
+          });
+
+          const isolatedNodes = nodes.filter(n => !connectedNodes.has(n.id));
+          if (isolatedNodes.length > 0) {
+            const maxLevel = Math.max(...Object.keys(layersObject).map(Number));
+            const isolatedLevel = maxLevel + 1;
+            layersObject[isolatedLevel] = isolatedNodes.map(node => {
+              node._level = isolatedLevel;
+              return node;
+            });
+          }
+
+          const sortedLevels = Object.keys(layersObject).map(Number).sort((a, b) => a - b);
+          
+          // 为每层计算位置
+          sortedLevels.forEach(level => {
+            const layer = layersObject[level];
+            const layerSize = layer.length;
+            
+            // 根据重要性排序（权重 + 连接度）
+            layer.sort((a, b) => {
+              const degreeA = data.edges.filter(e => e.source === a.id || e.target === a.id).length;
+              const degreeB = data.edges.filter(e => e.source === b.id || e.target === b.id).length;
+              const importanceA = (a._weight || 0) * 0.3 + degreeA * 0.7;
+              const importanceB = (b._weight || 0) * 0.3 + degreeB * 0.7;
+              return importanceB - importanceA;
+            });
+
+            // 计算X坐标（层级位置）
+            const baseX = level * ranksep;
+            
+            // 计算节点间的最小间距（考虑节点大小）
+            const getMinSpacing = (nodeA, nodeB) => {
+              const sizeA = nodeA.size || nodeSize;
+              const sizeB = nodeB.size || nodeSize;
+              return (sizeA + sizeB) / 2 + gap;
+            };
+            
+            // 计算Y坐标（垂直分布）
+            if (layerSize === 1) {
+              layer[0].style.x = baseX + (Math.random() - 0.5) * randomOffset * ranksep * 0.3;
+              layer[0].style.y = (Math.random() - 0.5) * randomOffset * gap * 0.3;
+            } else {
+              // 计算总需要的高度
+              let totalHeight = 0;
+              for (let i = 0; i < layerSize - 1; i++) {
+                totalHeight += getMinSpacing(layer[i], layer[i + 1]);
+              }
+              
+              // 分配Y坐标
+              let currentY = -totalHeight / 2;
+              layer.forEach((node, index) => {
+                if (index === 0) {
+                  node.style.y = currentY;
+                } else {
+                  currentY += getMinSpacing(layer[index - 1], node);
+                  node.style.y = currentY;
+                }
+                
+                // 添加垂直交错（减少幅度）
+                const stagger = (index % 2 === 0 ? 1 : -1) * verticalSpread * gap * 0.2;
+                
+                // 添加微量随机偏移
+                const randomY = (Math.random() - 0.5) * randomOffset * gap * 0.5;
+                const randomX = (Math.random() - 0.5) * randomOffset * ranksep * 0.2;
+                
+                // 重要节点位置微调（更靠近中心）
+                const importance = (node._weight || 0) + 
+                  data.edges.filter(e => e.source === node.id || e.target === node.id).length * 0.1;
+                const importanceY = -importance * gap * 0.1;
+                
+                node.style.x = baseX + randomX;
+                node.style.y = node.style.y + stagger + randomY + importanceY;
+              });
+            }
+          });
+
+          // 碰撞检测和调整
+          this.resolveCollisions(nodes, gap * 0.8);
+
+          return { nodes };
+        }
+
+        // 碰撞检测和解决方法
+        resolveCollisions(nodes, minDistance) {
+          const maxIterations = 10;
+          let iteration = 0;
+          
+          while (iteration < maxIterations) {
+            let hasCollision = false;
+            
+            for (let i = 0; i < nodes.length; i++) {
+              for (let j = i + 1; j < nodes.length; j++) {
+                const nodeA = nodes[i];
+                const nodeB = nodes[j];
+                
+                // 只检查相邻层级的节点
+                if (Math.abs(nodeA._level - nodeB._level) > 1) continue;
+                
+                const dx = nodeA.style.x - nodeB.style.x;
+                const dy = nodeA.style.y - nodeB.style.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                const sizeA = nodeA.size || 40;
+                const sizeB = nodeB.size || 40;
+                const requiredDistance = (sizeA + sizeB) / 2 + minDistance;
+                
+                if (distance < requiredDistance && distance > 0) {
+                  hasCollision = true;
+                  
+                  // 计算调整向量
+                  const overlap = requiredDistance - distance;
+                  const adjustX = (dx / distance) * overlap * 0.5;
+                  const adjustY = (dy / distance) * overlap * 0.5;
+                  
+                  // 同层级的节点主要在Y方向调整，不同层级的在X方向也调整
+                  if (nodeA._level === nodeB._level) {
+                    nodeA.style.y += adjustY;
+                    nodeB.style.y -= adjustY;
+                  } else {
+                    nodeA.style.x += adjustX * 0.3;
+                    nodeA.style.y += adjustY;
+                    nodeB.style.x -= adjustX * 0.3;
+                    nodeB.style.y -= adjustY;
+                  }
+                }
+              }
+            }
+            
+            if (!hasCollision) break;
+            iteration++;
+          }
+        }
+      }
+
       class ClickElement extends G6.BaseBehavior {
         constructor(context, options) { super(context, options); this.bindEvents(); }
         async clearState() { const { graph } = this.context; const { nodes, edges } = graph.getData(); const s = {}; [...nodes, ...edges].forEach(d => s[idOf(d)] = []); await graph.setElementState(s, false); }
@@ -208,6 +368,7 @@
       }
 
       G6.register('behavior', 'click-element', ClickElement);
+      G6.register('layout', 'organic', OrganicLayout);
 
       const toolbarOption = { type: 'toolbar', position: 'bottom-left', onClick: (item) => { if (item === 'zoom-in') graph.zoomBy(1.2); if (item === 'zoom-out') graph.zoomBy(0.8); if (item === 'auto-fit') graph.fitView(); }, getItems: () => ([{ id: 'zoom-in', value: 'zoom-in' }, { id: 'zoom-out', value: 'zoom-out' }, { id: 'auto-fit', value: 'auto-fit' }]) };
 
@@ -277,15 +438,39 @@
               stroke: (e) => colorOfEdge(e),
               lineDash: (e) => lineDashOf(e),
               endArrow: true,
-              lineWidth: (e) => 1 + 2 * Number(e._impact || 0)
+              lineWidth: (e) => 1 + 2 * Number(e._impact || 0),
+              type: (e) => {
+                // 根据关系类型选择不同的连线样式
+                if (e._type === 'influences') return 'quadratic'; // 影响关系用曲线
+                if (e._type === 'depends') return 'cubic'; // 依赖关系用贝塞尔曲线
+                return 'polyline'; // rollup用折线（更有机）
+              },
+              controlPoints: (e) => {
+                // 为不同类型的边添加控制点，增加有机感
+                if (e._type === 'influences') {
+                  return [{ x: 0.3, y: 0.2 }, { x: 0.7, y: -0.2 }]; // 轻微波浪
+                }
+                if (e._type === 'depends') {
+                  return [{ x: 0.25, y: -0.3 }, { x: 0.75, y: 0.3 }]; // S形曲线
+                }
+                return undefined; // rollup保持直线或轻微弯曲
+              },
+              opacity: 0.8,
+              strokeOpacity: 0.8
             },
             state: {
               inactive: { opacity: 0.15, strokeOpacity: 0.15 },
-              link: { lineWidth: (e) => 1.5 + 2 * Number(e._impact || 0), halo: false }
+              link: { 
+                lineWidth: (e) => 1.5 + 2 * Number(e._impact || 0), 
+                halo: false,
+                opacity: 1,
+                strokeOpacity: 1
+              }
             }
           },
           layout: [
-            { type: 'antv-dagre', rankdir: 'LR', ranksep: 120, nodesep: 12, controlPoints: true, nodeSize: (d) => 24 },
+            { type: 'antv-dagre', rankdir: 'LR', ranksep: 140, nodesep: 30, controlPoints: true, nodeSize: (d) => sizeBy(d.id, data.nodes, data.edges) + 20 },
+            { type: 'organic', gap: 80, ranksep: 140, verticalSpread: 0.3, randomOffset: 0.1, nodeSize: (d) => sizeBy(d.id, data.nodes, data.edges) }
           ],
           behaviors: ['drag-element', 'drag-canvas', 'zoom-canvas', 'click-element'],
           plugins: [toolbarOption, contextmenuOption, 'search-bar', 'detail-content']
