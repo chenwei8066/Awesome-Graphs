@@ -157,14 +157,95 @@
             const layer = layersObject[level];
             const layerSize = layer.length;
             
-            // 根据重要性排序（权重 + 连接度）
-            layer.sort((a, b) => {
-              const degreeA = data.edges.filter(e => e.source === a.id || e.target === a.id).length;
-              const degreeB = data.edges.filter(e => e.source === b.id || e.target === b.id).length;
-              const importanceA = (a._weight || 0) * 0.3 + degreeA * 0.7;
-              const importanceB = (b._weight || 0) * 0.3 + degreeB * 0.7;
-              return importanceB - importanceA;
-            });
+            // 如果是第一层（L0），按重要性排序
+            if (level === 0) {
+              layer.sort((a, b) => {
+                const degreeA = data.edges.filter(e => e.source === a.id || e.target === a.id).length;
+                const degreeB = data.edges.filter(e => e.source === b.id || e.target === b.id).length;
+                const importanceA = (a._weight || 0) * 0.3 + degreeA * 0.7;
+                const importanceB = (b._weight || 0) * 0.3 + degreeB * 0.7;
+                return importanceB - importanceA;
+              });
+            } else {
+              // 对于其他层级，根据与前一层的连接关系进行分组排序
+              const prevLevel = level - 1;
+              const prevLayer = layersObject[prevLevel] || [];
+              
+              // 创建连接组
+              const connectionGroups = [];
+              const unconnectedNodes = [];
+              
+              // 为前一层的每个节点创建对应的连接组
+              prevLayer.forEach((prevNode, prevIndex) => {
+                const connectedNodes = [];
+                
+                // 找到连接到这个前一层节点的当前层节点
+                data.edges.forEach(edge => {
+                  if (edge.source === prevNode.id) {
+                    const targetNode = layer.find(n => n.id === edge.target);
+                    if (targetNode) connectedNodes.push(targetNode);
+                  }
+                  if (edge.target === prevNode.id) {
+                    const sourceNode = layer.find(n => n.id === edge.source);
+                    if (sourceNode) connectedNodes.push(sourceNode);
+                  }
+                });
+                
+                if (connectedNodes.length > 0) {
+                  // 按重要性对组内节点排序
+                  connectedNodes.sort((a, b) => {
+                    const degreeA = data.edges.filter(e => e.source === a.id || e.target === a.id).length;
+                    const degreeB = data.edges.filter(e => e.source === b.id || e.target === b.id).length;
+                    const importanceA = (a._weight || 0) * 0.3 + degreeA * 0.7;
+                    const importanceB = (b._weight || 0) * 0.3 + degreeB * 0.7;
+                    return importanceB - importanceA;
+                  });
+                  
+                  connectionGroups.push({
+                    prevNode: prevNode,
+                    prevIndex: prevIndex,
+                    nodes: connectedNodes,
+                    targetY: prevNode.style.y || 0
+                  });
+                }
+              });
+              
+              // 找出未连接的节点
+              const connectedNodeIds = new Set();
+              connectionGroups.forEach(group => {
+                group.nodes.forEach(node => connectedNodeIds.add(node.id));
+              });
+              
+              layer.forEach(node => {
+                if (!connectedNodeIds.has(node.id)) {
+                  unconnectedNodes.push(node);
+                }
+              });
+              
+              // 按前一层节点的Y位置排序连接组
+              connectionGroups.sort((a, b) => a.targetY - b.targetY);
+              
+              // 重新组装layer数组，保持连接关系的垂直对应
+              const sortedLayer = [];
+              connectionGroups.forEach(group => {
+                sortedLayer.push(...group.nodes);
+              });
+              
+              // 将未连接的节点按重要性排序后添加到末尾
+              unconnectedNodes.sort((a, b) => {
+                const degreeA = data.edges.filter(e => e.source === a.id || e.target === a.id).length;
+                const degreeB = data.edges.filter(e => e.source === b.id || e.target === b.id).length;
+                const importanceA = (a._weight || 0) * 0.3 + degreeA * 0.7;
+                const importanceB = (b._weight || 0) * 0.3 + degreeB * 0.7;
+                return importanceB - importanceA;
+              });
+              sortedLayer.push(...unconnectedNodes);
+              
+              // 更新layer为排序后的数组
+              layersObject[level] = sortedLayer;
+              layer.length = 0;
+              layer.push(...sortedLayer);
+            }
 
             // 计算X坐标（层级位置）
             const baseX = level * ranksep;
