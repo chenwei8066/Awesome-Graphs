@@ -8,21 +8,46 @@
     <link rel="stylesheet" href="https://at.alicdn.com/t/a/font_470089_8hnbbf8n4u8.css" />
     <style>
       html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
-      #network { width: 100%; height: 100%; }
+      #network { width: calc(100% - 360px); height: 100%; background-color: #fafbfc; }
       .search-bar { position: absolute; top: 24px; left: 12px; z-index: 2; width: 360px; font-size: 14px; box-shadow: 0 0 8px rgba(0,0,0,0.1); border-radius: 8px; background-color: #fff; }
       #searchInput, #searchButton { font-size: 14px; }
       #search-list { position: absolute; top: 72px; left: 12px; z-index: 999; width: 360px; background-color: #fff; display: none; font-size: 14px; text-align: left; max-height: 480px; overflow-y: auto; padding: 8px 12px; border: 1px solid #eee; border-radius: 6px; }
       .alert-message { font-size: 14px; width: 360px; height: fit-content; top: 72px; left: 12px; line-height: 24px; padding: 6px 0 6px 12px; position: absolute; z-index: 1; }
       .btn-close:focus { box-shadow: none; }
-      #node-detail { left: 50%; width: max-content; top: 20px; transform: translateX(-50%); position: absolute; border: 0; border-radius: 8px; background-color: rgba(255,255,255,0.9); padding: 10px 12px; z-index: 1000; text-align: left; box-shadow: 0 2px 12px rgba(0,0,0,0.12); }
+      #node-detail { 
+        position: fixed; 
+        right: 0; 
+        top: 0; 
+        width: 360px; 
+        height: 100vh;
+        background: #fff; 
+        border-left: 1px solid #e5e7eb; 
+        box-shadow: -2px 0 6px rgba(0,0,0,0.04); 
+        z-index: 1000; 
+        display: block;
+        overflow: hidden;
+      }
+      .detail-header { 
+        padding: 16px 20px 12px; 
+        border-bottom: 1px solid #f3f4f6; 
+        background: #fafbfc;
+      }
+      .detail-title { 
+        font-size: 16px; 
+        font-weight: 700; 
+        color: #111827; 
+        margin: 0;
+      }
+      .detail-content { 
+        padding: 16px 20px; 
+        height: calc(100vh - 80px);
+        overflow-y: auto;
+      }
       .g6-toolbar { background: #fff; border-radius: 8px !important; bottom: 50% !important; flex-direction: column !important; gap: 4px; left: 12px !important; opacity: 1 !important; padding: 4px !important; }
       .g6-toolbar-item { display: flex !important; }
       .metric-line { font-size: 12px; color: #111; }
       .metric-line .k { color: #6b7280; margin-right: 4px; }
       .metric-line .v { font-weight: 600; }
-      .legend { position: absolute; right: 12px; top: 12px; z-index: 2; background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 8px 10px; font-size: 12px; }
-      .legend .item { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
-      .legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
     </style>
   </head>
   <body>
@@ -32,44 +57,46 @@
     </div>
     <div id="search-list"></div>
     <div id="live-alert"></div>
-    <div id="node-detail"></div>
+    <div id="node-detail">
+      <div class="detail-header">
+        <h3 class="detail-title" id="detail-title">指标详情</h3>
+      </div>
+      <div class="detail-content" id="detail-content">
+        <div style="color: #9ca3af; text-align: center; padding: 40px 20px; font-size: 14px;">
+          点击图谱中的节点查看详细信息
+        </div>
+      </div>
+    </div>
     <div id="loading-status" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 18px; z-index: 1000;">加载中...</div>
     <div id="network"></div>
 
-    <div class="legend">
-      <div class="item"><span class="dot" style="background:#1e40af"></span><span>核心指标</span></div>
-      <div class="item"><span class="dot" style="background:#059669"></span><span>业务线</span></div>
-      <div class="item"><span class="dot" style="background:#dc2626"></span><span>平台/用户群</span></div>
-      <div class="item"><span class="dot" style="background:#7c3aed"></span><span>影响因子</span></div>
-      <div class="item"><span class="dot" style="background:#ea580c"></span><span>营销工具</span></div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/fuzzy@0.1.3/lib/fuzzy.js"></script>
     <script src="https://unpkg.com/@antv/g6@5/dist/g6.min.js"></script>
     <script type="module">
-      const BG_COLOR = '#FFF';
-      const CORE_TARGET = '#1e40af';     // 核心目标
-      const CORE_METRIC = '#059669';     // 核心指标
-      const SEGMENT = '#dc2626';         // 业务线/平台
-      const FACTOR = '#7c3aed';          // 影响因子
-      const TOOL = '#ea580c';            // 工具
+      const BG_COLOR = '#fafbfc';
+      // 健康状态颜色系统
+      const HEALTHY_COLOR = '#059669';    // 绿色 - 健康状态
+      const WARNING_COLOR = '#f59e0b';    // 黄色 - 预警状态  
+      const PROBLEM_COLOR = '#dc2626';    // 红色 - 有问题状态
+      const UNKNOWN_COLOR = '#6b7280';    // 灰色 - 未知状态
       const UNI_EDGE = '#94a3b8';
       const ROLLUP_EDGE = '#6366f1';
       const INFLU_EDGE = '#0891b2';
 
       // 默认fallback数据（在无法从 JSON 加载时使用）
       const defaultNodes = [
-        { id: '有效订单量', _type: 'metric', _domain: '核心', _level: 0, _category: 'business_target', _weight: 1.0 },
-        { id: 'DAU', _type: 'metric', _domain: '用户', _level: 1, _category: 'core_metric', _weight: 0.9, _description: '日活跃用户数' },
-        { id: '访购率', _type: 'metric', _domain: '转化', _level: 1, _category: 'core_metric', _weight: 0.9, _description: '访问用户到购买的转化率' },
-        { id: '下单频次', _type: 'metric', _domain: '行为', _level: 1, _category: 'core_metric', _weight: 0.8, _description: '用户平均下单次数' },
-        { id: '笔单价', _type: 'metric', _domain: '收益', _level: 1, _category: 'core_metric', _weight: 0.8, _description: '平均订单金额' },
-        { id: '闪购DAU', _type: 'metric', _domain: '闪购', _level: 2, _category: 'segment', _weight: 0.7 },
-        { id: '非闪购DAU', _type: 'metric', _domain: '非闪购', _level: 2, _category: 'segment', _weight: 0.6 },
-        { id: 'ET端DAU', _type: 'metric', _domain: '闪购', _level: 3, _category: 'platform', _weight: 0.6 },
-        { id: '营销补贴', _type: 'factor', _domain: '营销', _level: 2, _category: 'conversion_factor', _weight: 0.7, _description: '影响访购率的营销因素' },
-        { id: '供给丰富度', _type: 'factor', _domain: '供给', _level: 2, _category: 'conversion_factor', _weight: 0.8, _description: '商户和商品供给情况' }
+        { id: '有效订单量', _type: 'metric', _domain: '核心', _level: 0, _category: 'business_target', _weight: 1.0, _status: 'healthy' },
+        { id: 'DAU', _type: 'metric', _domain: '用户', _level: 1, _category: 'core_metric', _weight: 0.9, _description: '日活跃用户数', _status: 'healthy' },
+        { id: '访购率', _type: 'metric', _domain: '转化', _level: 1, _category: 'core_metric', _weight: 0.9, _description: '访问用户到购买的转化率', _status: 'warning' },
+        { id: '下单频次', _type: 'metric', _domain: '行为', _level: 1, _category: 'core_metric', _weight: 0.8, _description: '用户平均下单次数', _status: 'healthy' },
+        { id: '笔单价', _type: 'metric', _domain: '收益', _level: 1, _category: 'core_metric', _weight: 0.8, _description: '平均订单金额', _status: 'problem' },
+        { id: '闪购DAU', _type: 'metric', _domain: '闪购', _level: 2, _category: 'segment', _weight: 0.7, _status: 'healthy' },
+        { id: '非闪购DAU', _type: 'metric', _domain: '非闪购', _level: 2, _category: 'segment', _weight: 0.6, _status: 'warning' },
+        { id: 'ET端DAU', _type: 'metric', _domain: '闪购', _level: 3, _category: 'platform', _weight: 0.6, _status: 'healthy' },
+        { id: '营销补贴', _type: 'factor', _domain: '营销', _level: 2, _category: 'conversion_factor', _weight: 0.7, _description: '影响访购率的营销因素', _status: 'problem' },
+        { id: '供给丰富度', _type: 'factor', _domain: '供给', _level: 2, _category: 'conversion_factor', _weight: 0.8, _description: '商户和商品供给情况', _status: 'healthy' }
       ];
       const defaultEdges = [
         { from: 'DAU', to: '有效订单量', _type: 'rollup', _impact: 0.25 },
@@ -90,14 +117,32 @@
         return data;
       };
 
-      const colorByCategory = (node) => {
-        if (node._category === 'business_target') return CORE_TARGET;
-        if (node._category === 'core_metric') return CORE_METRIC;
-        if (node._category === 'segment' || node._category === 'platform' || node._category === 'user_group') return SEGMENT;
-        if (node._category === 'conversion_factor' || node._category === 'supply_metric' || node._category === 'logistics_metric') return FACTOR;
-        if (node._category === 'marketing_tool' || node._type === 'tool') return TOOL;
-        if (node._type === 'factor') return FACTOR;
-        return CORE_METRIC; // 默认颜色
+      const colorByHealthStatus = (node) => {
+        // 检查节点的健康状态字段
+        const status = node._status || node._health || 'healthy'; // 默认为健康
+        
+        switch (status.toLowerCase()) {
+          case 'healthy':
+          case 'good':
+          case 'normal':
+            return HEALTHY_COLOR;
+          case 'warning':
+          case 'caution':
+          case 'attention':
+            return WARNING_COLOR;
+          case 'problem':
+          case 'error':
+          case 'critical':
+          case 'bad':
+            return PROBLEM_COLOR;
+          case 'unknown':
+          case 'undefined':
+          case null:
+          case undefined:
+            return UNKNOWN_COLOR;
+          default:
+            return HEALTHY_COLOR; // 默认为健康状态
+        }
       };
 
       const sizeBy = (nodeId, nodes, edges, minSize = 20, maxSize = 90) => {
@@ -115,7 +160,16 @@
 
       class OrganicLayout extends G6.BaseLayout {
         async execute(data) {
+          const layoutParams = calculateLayoutParams();
           const { gap = 30, ranksep = 320, nodeSize = 40, verticalSpread = 0.15, randomOffset = 0.05 } = this.options;
+          
+          // 使用计算得到的布局参数
+          const actualGap = layoutParams.gap || gap;
+          const actualRanksep = layoutParams.ranksep || ranksep;
+          const actualVerticalSpread = layoutParams.verticalSpread || verticalSpread;
+          const actualRandomOffset = layoutParams.randomOffset || randomOffset;
+          
+          console.log(`使用布局模式: ${layoutParams.layoutMode}, 屏幕比例: ${layoutParams.aspectRatio.toFixed(2)}, ranksep: ${actualRanksep}, gap: ${actualGap}`);
           const nodes = data.nodes.map(node => ({
             id: node.id,
             style: { ...node.style },
@@ -248,19 +302,19 @@
             }
 
             // 计算X坐标（层级位置）
-            const baseX = level * ranksep;
+            const baseX = level * actualRanksep;
             
             // 计算节点间的最小间距（考虑节点大小）
             const getMinSpacing = (nodeA, nodeB) => {
               const sizeA = nodeA.size || nodeSize;
               const sizeB = nodeB.size || nodeSize;
-              return (sizeA + sizeB) / 2 + gap;
+              return (sizeA + sizeB) / 2 + actualGap;
             };
             
             // 计算Y坐标（垂直分布）
             if (layerSize === 1) {
-              layer[0].style.x = baseX + (Math.random() - 0.5) * randomOffset * ranksep * 0.3;
-              layer[0].style.y = (Math.random() - 0.5) * randomOffset * gap * 0.3;
+              layer[0].style.x = baseX + (Math.random() - 0.5) * actualRandomOffset * actualRanksep * 0.3;
+              layer[0].style.y = (Math.random() - 0.5) * actualRandomOffset * actualGap * 0.3;
             } else {
               // 计算总需要的高度
               let totalHeight = 0;
@@ -279,16 +333,16 @@
                 }
                 
                 // 添加垂直交错（减少幅度）
-                const stagger = (index % 2 === 0 ? 1 : -1) * verticalSpread * gap * 0.2;
+                const stagger = (index % 2 === 0 ? 1 : -1) * actualVerticalSpread * actualGap * 0.2;
                 
                 // 添加微量随机偏移
-                const randomY = (Math.random() - 0.5) * randomOffset * gap * 0.5;
-                const randomX = (Math.random() - 0.5) * randomOffset * ranksep * 0.2;
+                const randomY = (Math.random() - 0.5) * actualRandomOffset * actualGap * 0.5;
+                const randomX = (Math.random() - 0.5) * actualRandomOffset * actualRanksep * 0.2;
                 
                 // 重要节点位置微调（更靠近中心）
                 const importance = (node._weight || 0) + 
                   data.edges.filter(e => e.source === node.id || e.target === node.id).length * 0.1;
-                const importanceY = -importance * gap * 0.1;
+                const importanceY = -importance * actualGap * 0.1;
                 
                 node.style.x = baseX + randomX;
                 node.style.y = node.style.y + stagger + randomY + importanceY;
@@ -297,7 +351,7 @@
           });
 
           // 碰撞检测和调整
-          this.resolveCollisions(nodes, gap * 0.6);
+          this.resolveCollisions(nodes, actualGap * 0.6);
 
           return { nodes };
         }
@@ -428,24 +482,72 @@
       }
 
       class DetailContent extends G6.BasePlugin {
-        nodeDetail = document.getElementById('node-detail');
-        constructor(context, options) { super(context, options); this.bindEvents(); }
-        appendDetail = (node) => {
-          removeElement(this.nodeDetail);
+        detailTitle = document.getElementById('detail-title');
+        detailContent = document.getElementById('detail-content');
+        
+        constructor(context, options) { 
+          super(context, options); 
+          this.bindEvents(); 
+        }
+        
+        updateContent = (node) => {
           if (!node) return;
-          const line = (k, v) => { const div = document.createElement('div'); div.className = 'metric-line'; div.innerHTML = `<span class="k">${k}</span><span class="v">${v}</span>`; return div; };
-          const title = document.createElement('div'); title.style.fontWeight = '700'; title.style.marginBottom = '4px'; title.innerText = node.id; this.nodeDetail.appendChild(title);
-          if (node._description) this.nodeDetail.appendChild(line('说明', node._description));
-          if (node._domain) this.nodeDetail.appendChild(line('业务域', node._domain));
-          if (node._category) this.nodeDetail.appendChild(line('类型', node._category));
-          if (node._level != null) this.nodeDetail.appendChild(line('层级', `L${node._level}`));
-          if (node._weight != null) this.nodeDetail.appendChild(line('权重', node._weight));
+          
+          // 设置标题
+          this.detailTitle.textContent = node.id;
+          
+          // 清空内容区域
+          removeElement(this.detailContent);
+          
+          const line = (k, v, color) => { 
+            const div = document.createElement('div'); 
+            div.className = 'metric-line'; 
+            div.style.marginBottom = '12px';
+            div.style.paddingBottom = '8px';
+            div.style.borderBottom = '1px solid #f3f4f6';
+            const valueSpan = color ? `<span style="color: ${color}; font-weight: 600; font-size: 14px;">${v}</span>` : `<span style="font-weight: 600; font-size: 14px; color: #111827;">${v}</span>`;
+            div.innerHTML = `<div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">${k}</div>${valueSpan}`; 
+            return div; 
+          };
+          
+          // 显示健康状态
+          if (node._status || node._health) {
+            const status = node._status || node._health;
+            const statusText = status === 'healthy' ? '健康' : 
+                              status === 'warning' ? '预警' : 
+                              status === 'problem' ? '异常' : '未知';
+            const statusColor = colorByHealthStatus(node);
+            this.detailContent.appendChild(line('健康状态', statusText, statusColor));
+          }
+          
+          if (node._description) this.detailContent.appendChild(line('指标说明', node._description));
+          if (node._domain) this.detailContent.appendChild(line('业务域', node._domain));
+          if (node._category) this.detailContent.appendChild(line('指标类型', node._category));
+          if (node._level != null) this.detailContent.appendChild(line('层级', `L${node._level}`));
+          if (node._weight != null) this.detailContent.appendChild(line('权重', node._weight));
         };
-        onNodeClick = (event) => { const { target } = event; const { graph } = this.context; const data = graph.getNodeData(target.id); this.appendDetail(data); };
-        onCanvasClick = () => { removeElement(this.nodeDetail); };
-        bindEvents() { const { graph } = this.context; graph.on('node:click', this.onNodeClick); graph.on('canvas:click', this.onCanvasClick); }
-        unbindEvents() { const { graph } = this.context; graph.off('node:click', this.onNodeClick); graph.off('canvas:click', this.onCanvasClick); }
-        destroy() { this.unbindEvents(); super.destroy(); }
+        
+        onNodeClick = (event) => { 
+          const { target } = event; 
+          const { graph } = this.context; 
+          const data = graph.getNodeData(target.id); 
+          this.updateContent(data); 
+        };
+        
+        bindEvents() { 
+          const { graph } = this.context; 
+          graph.on('node:click', this.onNodeClick); 
+        }
+        
+        unbindEvents() { 
+          const { graph } = this.context; 
+          graph.off('node:click', this.onNodeClick); 
+        }
+        
+        destroy() { 
+          this.unbindEvents(); 
+          super.destroy(); 
+        }
       }
 
       G6.register('behavior', 'click-element', ClickElement);
@@ -474,21 +576,111 @@
       // 提升为全局，便于行为/函数访问
       let graph;
 
-      const buildGraph = async (graphData) => {
-        console.log('构建图谱，输入数据:', graphData);
-        const data = transformData(graphData);
-        console.log('转换后数据:', data);
+      // 计算适应屏幕比例的图谱形状和布局参数
+      const calculateLayoutParams = () => {
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+        const graphWidth = windowWidth - 360; // 减去右侧面板宽度
+        const aspectRatio = graphWidth / windowHeight; // 基于实际图谱区域计算比例
+        
+        // 图谱可用空间计算 - 已经在CSS中为右侧面板预留了360px  
+        const uiReservedWidth = aspectRatio > 1.8 ? 100 : aspectRatio > 1.4 ? 150 : 200; // 搜索框等UI元素
+        const uiReservedHeight = 120; // 减少顶部底部保留空间
+        const availableWidth = graphWidth - uiReservedWidth;
+        const availableHeight = windowHeight - uiReservedHeight;
+        
+        // 计算图谱层级数量和节点分布
+        const nodes = graphData?.nodes || [];
+        const maxLevel = Math.max(...nodes.map(n => n._level || 0), 6);
+        const levelCounts = {};
+        nodes.forEach(n => {
+          const level = n._level || 0;
+          levelCounts[level] = (levelCounts[level] || 0) + 1;
+        });
+        const maxNodesInLevel = Math.max(...Object.values(levelCounts), 1);
+        
+        // 根据屏幕比例决定布局策略
+        let ranksep, gap, layoutMode;
+        
+        if (aspectRatio > 2.0) {
+          // 超宽屏：极度拉伸水平，压缩垂直
+          layoutMode = 'ultra-wide';
+          ranksep = Math.max(400, availableWidth * 0.85 / (maxLevel + 1));
+          gap = Math.max(18, availableHeight / (maxNodesInLevel + 3));
+        } else if (aspectRatio > 1.6) {
+          // 宽屏：标准16:9或21:9
+          layoutMode = 'wide';
+          ranksep = Math.max(320, availableWidth * 0.8 / (maxLevel + 1));
+          gap = Math.max(22, availableHeight / (maxNodesInLevel + 2));
+        } else if (aspectRatio > 1.2) {
+          // 标准屏：4:3到16:10
+          layoutMode = 'standard';
+          ranksep = Math.max(280, availableWidth * 0.75 / (maxLevel + 1));
+          gap = Math.max(28, availableHeight / (maxNodesInLevel + 1));
+        } else {
+          // 竖屏或正方形：调整为更紧凑的布局
+          layoutMode = 'compact';
+          ranksep = Math.max(220, availableWidth * 0.7 / (maxLevel + 1));
+          gap = Math.max(32, availableHeight / (maxNodesInLevel + 1));
+        }
+        
+        // 确保间距在合理范围内，但允许更大的ranksep
+        ranksep = Math.max(200, Math.min(800, ranksep));
+        gap = Math.max(18, Math.min(60, gap));
+        
+        // 动态计算padding，宽屏减少水平padding以充分利用空间
+        const horizontalPadding = aspectRatio > 2.0 ? Math.max(30, windowWidth * 0.02) :
+                                  aspectRatio > 1.6 ? Math.max(40, windowWidth * 0.03) :
+                                  aspectRatio > 1.2 ? Math.max(50, windowWidth * 0.04) :
+                                  Math.max(60, windowWidth * 0.05);
+        const verticalPadding = Math.max(15, windowHeight * 0.025);
+        
+        // 计算其他UI参数
+        const fontSize = Math.max(8, Math.min(14, Math.sqrt(windowWidth * windowHeight) / 120));
+        const labelMaxWidth = aspectRatio > 2.0 ? '300%' : 
+                              aspectRatio > 1.6 ? '250%' : 
+                              aspectRatio > 1.2 ? '200%' : '180%';
+        
+        return {
+          ranksep,
+          gap,
+          layoutMode,
+          aspectRatio,
+          availableWidth,
+          availableHeight,
+          maxLevel,
+          maxNodesInLevel,
+          padding: [verticalPadding, horizontalPadding, verticalPadding, horizontalPadding],
+          fontSize,
+          labelMaxWidth,
+          // 布局微调参数
+          verticalSpread: aspectRatio > 1.8 ? 0.1 : aspectRatio > 1.4 ? 0.15 : 0.2,
+          randomOffset: aspectRatio > 1.8 ? 0.03 : aspectRatio > 1.4 ? 0.05 : 0.08
+        };
+      };
+
+      let graphData = null; // 全局存储数据用于重新计算
+
+      const buildGraph = async (data) => {
+        console.log('构建图谱，输入数据:', data);
+        graphData = data; // 存储数据
+        const transformedData = transformData(data);
+        console.log('转换后数据:', transformedData);
+        
+        const layoutParams = calculateLayoutParams();
+        console.log('计算的布局参数:', layoutParams);
+        
         graph = new G6.Graph({
           container: 'network',
-          data: data,
+          data: transformedData,
           animation: false,
           autoFit: 'view',
-          padding: [30, 120, 30, 120],
+          padding: layoutParams.padding,
           background: BG_COLOR,
           node: {
             style: {
               size: (d) => sizeBy(d.id, data.nodes, data.edges),
-              fill: (d) => colorByCategory(d),
+              fill: (d) => colorByHealthStatus(d),
               iconFontFamily: 'iconfont',
               iconText: (d) => {
                 if (d._category === 'business_target') return '\uE65F'; // 目标
@@ -501,12 +693,12 @@
               },
               label: true,
               labelText: (d) => d._description ? `${d.id}\n${d._description}` : d.id,
-              labelFontSize: 10,
+              labelFontSize: layoutParams.fontSize,
               labelBackground: true,
               labelBackgroundFill: '#e5e7eb',
               labelPadding: [0, 6],
               labelBackgroundRadius: 4,
-              labelMaxWidth: '250%',
+              labelMaxWidth: layoutParams.labelMaxWidth,
               labelWordWrap: true
             },
             state: {
@@ -550,8 +742,8 @@
             }
           },
           layout: [
-            { type: 'antv-dagre', rankdir: 'LR', ranksep: 320, nodesep: 15, controlPoints: true, nodeSize: (d) => sizeBy(d.id, data.nodes, data.edges) + 20 },
-            { type: 'organic', gap: 30, ranksep: 320, verticalSpread: 0.15, randomOffset: 0.05, nodeSize: (d) => sizeBy(d.id, data.nodes, data.edges) }
+            { type: 'antv-dagre', rankdir: 'LR', ranksep: layoutParams.ranksep, nodesep: Math.max(10, layoutParams.gap * 0.4), controlPoints: true, nodeSize: (d) => sizeBy(d.id, transformedData.nodes, transformedData.edges) + 20 },
+            { type: 'organic', gap: layoutParams.gap, ranksep: layoutParams.ranksep, verticalSpread: layoutParams.verticalSpread, randomOffset: layoutParams.randomOffset, nodeSize: (d) => sizeBy(d.id, transformedData.nodes, transformedData.edges) }
           ],
           behaviors: ['drag-element', 'drag-canvas', 'zoom-canvas', 'click-element'],
           plugins: [toolbarOption, contextmenuOption, 'search-bar', 'detail-content']
@@ -579,27 +771,27 @@
 
       const loadAndRenderGraph = async () => {
         // 优先尝试从Markdown解析API加载数据
-        let graphData = await fetchJsonSafe('http://localhost:3001/api/graph-data');
+        let loadedGraphData = await fetchJsonSafe('http://localhost:3001/api/graph-data');
         
         // 如果API不可用，尝试静态JSON文件
-        if (!graphData) {
+        if (!loadedGraphData) {
           console.log('Markdown API不可用，尝试静态JSON文件');
           const loadedNodes = await fetchJsonSafe('./data/nodes.json');
           const loadedEdges = await fetchJsonSafe('./data/edges.json');
-          graphData = {
+          loadedGraphData = {
             nodes: loadedNodes || defaultNodes,
             edges: loadedEdges || defaultEdges
           };
         } else {
           console.log('成功从Markdown解析API加载数据');
-          console.log('节点数:', graphData.nodes?.length, '边数:', graphData.edges?.length);
+          console.log('节点数:', loadedGraphData.nodes?.length, '边数:', loadedGraphData.edges?.length);
         }
 
         // 如果已有图实例，销毁后重建
         if (graph) {
           graph.destroy();
         }
-        graph = await buildGraph(graphData);
+        await buildGraph(loadedGraphData);
       };
 
       const checkForUpdates = async () => {
@@ -615,8 +807,37 @@
         }
       };
 
+      // 防抖函数，避免窗口大小调整时频繁重新布局
+      const debounce = (func, wait) => {
+        let timeout;
+        return function executedFunction(...args) {
+          const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+          };
+          clearTimeout(timeout);
+          timeout = setTimeout(later, wait);
+        };
+      };
+
+      // 窗口大小变化时重新布局
+      const handleResize = debounce(async () => {
+        if (graph && graphData) {
+          console.log('窗口大小变化，重新计算布局');
+          const newParams = calculateLayoutParams();
+          console.log('新的布局参数:', newParams);
+          
+          // 销毁当前图谱并重新构建
+          graph.destroy();
+          await buildGraph(graphData);
+        }
+      }, 300);
+
       const main = async () => {
         await loadAndRenderGraph();
+        
+        // 添加窗口大小变化监听
+        window.addEventListener('resize', handleResize);
         
         // 启动定期检查文件变化
         refreshInterval = setInterval(checkForUpdates, 2000);
