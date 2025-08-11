@@ -117,33 +117,36 @@
         return data;
       };
 
-      const colorByHealthStatus = (node) => {
-        // 检查节点的健康状态字段
-        const status = node._status || node._health || 'healthy'; // 默认为健康
-        
-        switch (status.toLowerCase()) {
-          case 'healthy':
-          case 'good':
-          case 'normal':
-            return HEALTHY_COLOR;
-          case 'warning':
-          case 'caution':
-          case 'attention':
-            return WARNING_COLOR;
-          case 'problem':
-          case 'error':
-          case 'critical':
-          case 'bad':
-            return PROBLEM_COLOR;
-          case 'unknown':
-          case 'undefined':
-          case null:
-          case undefined:
-            return UNKNOWN_COLOR;
-          default:
-            return HEALTHY_COLOR; // 默认为健康状态
-        }
+      // 红色问题节点判断函数
+      const isRedNode = (nodeId) => {
+        const redNodes = [
+          '访购率',           // L1
+          '营销补贴', '供给丰富度', '物流体验',  // L2
+          '发放形式', '发放渠道', '热销品下架', '20min超时率',  // L3
+          '特殊人群DAU',       // L4
+          '摇摆用户', '异地用户',  // L5
+          '渠道A', '渠道B',     // L6
+          // 根据图片新增的红圈节点
+          '访购率-内购-分流-ET-新客-L126',
+          '访购率-内购-分流-ET',
+          '访购率-内购-分流-EA',
+          '全用',
+          '人工',
+          '商品',  // 新增商品指标为红色
+          // 新增闪购相关红色节点
+          '访购率-闪购',
+          '访购率-闪购-分端-ET',
+          '访购率-闪购-分端-ET-新客-L126',
+          '天降'
+        ];
+        return redNodes.includes(nodeId);
       };
+
+      // 访购率红色问题链路 - 完整的下游影响链
+      const colorByHealthStatus = (node) => {
+        return isRedNode(node.id) ? '#dc2626' : '#059669'; // 红色或绿色
+      };
+
 
       const sizeBy = (nodeId, nodes, edges, minSize = 20, maxSize = 90) => {
         const node = nodes.find((n) => n.id === nodeId) || {};
@@ -558,10 +561,16 @@
       const contextmenuOption = { type: 'contextmenu', trigger: 'contextmenu', onClick: (v, element, target) => { if (v === 'reference-network') graph.emit('node:click', { target, targetType: 'node', direction: 'out' }); if (v === 'citation-network') graph.emit('node:click', { target, targetType: 'node', direction: 'in' }); if (v === 'direct-neighbors') graph.emit('node:click', { target, targetType: 'node', onlyNeighbors: true }); graph.fitView(); }, getItems: () => ([{ name: '下游影响网络', value: 'reference-network' }, { name: '上游依赖网络', value: 'citation-network' }, { name: '直接邻居', value: 'direct-neighbors' }]), enable: (e) => e.targetType === 'node' };
 
       const colorOfEdge = (e) => {
-        if (e._type === 'rollup') return '#6366f1'; // 紫色，表示聚合关系
-        if (e._type === 'influences') return '#0891b2'; // 蓝色，表示影响关系
-        if (e._type === 'depends') return '#dc2626'; // 红色，表示依赖关系
-        return '#94a3b8'; // 默认灰色
+        // 如果连接的两个节点都是红色问题节点，连线也用红色
+        const sourceIsRed = isRedNode(e.source || e.from);
+        const targetIsRed = isRedNode(e.target || e.to);
+        
+        if (sourceIsRed && targetIsRed) {
+          return '#dc2626'; // 红色 - 问题传导路径
+        }
+        
+        // 默认都用灰色
+        return '#94a3b8'; // 灰色 - 正常连接
       };
       const lineDashOf = (e) => {
         if (e._type === 'influences') return [6, 6]; // 影响关系用虚线
@@ -636,10 +645,8 @@
         const verticalPadding = Math.max(15, windowHeight * 0.025);
         
         // 计算其他UI参数
-        const fontSize = Math.max(8, Math.min(14, Math.sqrt(windowWidth * windowHeight) / 120));
-        const labelMaxWidth = aspectRatio > 2.0 ? '300%' : 
-                              aspectRatio > 1.6 ? '250%' : 
-                              aspectRatio > 1.2 ? '200%' : '180%';
+        const fontSize = Math.max(10, Math.min(16, Math.sqrt(windowWidth * windowHeight) / 120));
+        const labelMaxWidth = 300; // 增加最大宽度，确保长名称完整显示
         
         return {
           ranksep,
@@ -692,11 +699,11 @@
                 return '\uE7B0';
               },
               label: true,
-              labelText: (d) => d._description ? `${d.id}\n${d._description}` : d.id,
+              labelText: (d) => d.id, // 只显示节点名称，确保完整展示
               labelFontSize: layoutParams.fontSize,
               labelBackground: true,
-              labelBackgroundFill: '#e5e7eb',
-              labelPadding: [0, 6],
+              labelBackgroundFill: 'rgba(255,255,255,0.9)',
+              labelPadding: [2, 8],
               labelBackgroundRadius: 4,
               labelMaxWidth: layoutParams.labelMaxWidth,
               labelWordWrap: true
