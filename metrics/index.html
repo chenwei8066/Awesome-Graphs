@@ -115,7 +115,7 @@
 
       class OrganicLayout extends G6.BaseLayout {
         async execute(data) {
-          const { gap = 60, ranksep = 120, nodeSize = 40, verticalSpread = 0.4, randomOffset = 0.15 } = this.options;
+          const { gap = 30, ranksep = 320, nodeSize = 40, verticalSpread = 0.15, randomOffset = 0.05 } = this.options;
           const nodes = data.nodes.map(node => ({
             id: node.id,
             style: { ...node.style },
@@ -297,7 +297,7 @@
           });
 
           // 碰撞检测和调整
-          this.resolveCollisions(nodes, gap * 0.8);
+          this.resolveCollisions(nodes, gap * 0.6);
 
           return { nodes };
         }
@@ -483,7 +483,7 @@
           data: data,
           animation: false,
           autoFit: 'view',
-          padding: [0, 20, 0, 60],
+          padding: [30, 120, 30, 120],
           background: BG_COLOR,
           node: {
             style: {
@@ -501,12 +501,12 @@
               },
               label: true,
               labelText: (d) => d._description ? `${d.id}\n${d._description}` : d.id,
-              labelFontSize: 11,
+              labelFontSize: 10,
               labelBackground: true,
               labelBackgroundFill: '#e5e7eb',
               labelPadding: [0, 6],
               labelBackgroundRadius: 4,
-              labelMaxWidth: '300%',
+              labelMaxWidth: '250%',
               labelWordWrap: true
             },
             state: {
@@ -550,8 +550,8 @@
             }
           },
           layout: [
-            { type: 'antv-dagre', rankdir: 'LR', ranksep: 140, nodesep: 30, controlPoints: true, nodeSize: (d) => sizeBy(d.id, data.nodes, data.edges) + 20 },
-            { type: 'organic', gap: 80, ranksep: 140, verticalSpread: 0.3, randomOffset: 0.1, nodeSize: (d) => sizeBy(d.id, data.nodes, data.edges) }
+            { type: 'antv-dagre', rankdir: 'LR', ranksep: 320, nodesep: 15, controlPoints: true, nodeSize: (d) => sizeBy(d.id, data.nodes, data.edges) + 20 },
+            { type: 'organic', gap: 30, ranksep: 320, verticalSpread: 0.15, randomOffset: 0.05, nodeSize: (d) => sizeBy(d.id, data.nodes, data.edges) }
           ],
           behaviors: ['drag-element', 'drag-canvas', 'zoom-canvas', 'click-element'],
           plugins: [toolbarOption, contextmenuOption, 'search-bar', 'detail-content']
