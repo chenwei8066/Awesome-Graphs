@@ -326,29 +326,66 @@
               // 如果总角度超过2π，按比例缩放
               const scaleFactor = totalRequiredAngle > 2 * Math.PI ? (2 * Math.PI) / totalRequiredAngle : 1;
               
-              // 分配角度区域给每个父组
-              let currentAngle = -Math.PI; // 从左侧开始
+              // 为每个父节点的子节点分配位置，避免区域重叠
+              const assignedRanges = []; // 记录已分配的角度范围
               
               parentGroupsArray.forEach(group => {
                 const parent = group.parent;
                 const children = group.children;
                 const childCount = children.length;
+                const parentAngle = parent._angle || 0;
                 
-                // 计算这个组的角度范围
+                // 计算子节点需要的角度范围
                 const groupAngle = group.requiredAngle * scaleFactor;
-                const angleStep = childCount > 1 ? groupAngle / (childCount - 1) : 0;
-                const groupStartAngle = currentAngle;
                 
-                // 在组内分配子节点
+                // 尝试围绕父节点分布
+                let startAngle = parentAngle - groupAngle / 2;
+                let endAngle = parentAngle + groupAngle / 2;
+                
+                // 检查是否与其他组冲突
+                let hasConflict = true;
+                let attempts = 0;
+                const maxAttempts = 10;
+                
+                while (hasConflict && attempts < maxAttempts) {
+                  hasConflict = false;
+                  
+                  // 检查与已分配范围的冲突
+                  for (const range of assignedRanges) {
+                    if ((startAngle >= range.start && startAngle <= range.end) ||
+                        (endAngle >= range.start && endAngle <= range.end) ||
+                        (startAngle <= range.start && endAngle >= range.end)) {
+                      hasConflict = true;
+                      
+                      // 调整到范围外
+                      if (Math.abs(startAngle - range.end) < Math.abs(endAngle - range.start)) {
+                        // 移动到范围右侧
+                        const shift = range.end - startAngle + 0.1;
+                        startAngle += shift;
+                        endAngle += shift;
+                      } else {
+                        // 移动到范围左侧
+                        const shift = endAngle - range.start + 0.1;
+                        startAngle -= shift;
+                        endAngle -= shift;
+                      }
+                      break;
+                    }
+                  }
+                  attempts++;
+                }
+                
+                // 记录分配的范围
+                assignedRanges.push({ start: startAngle, end: endAngle });
+                
+                // 分配子节点位置
+                const angleStep = childCount > 1 ? groupAngle / (childCount - 1) : 0;
                 children.forEach((child, index) => {
-                  const childAngle = groupStartAngle + (index * angleStep);
+                  const childAngle = startAngle + (index * angleStep);
                   child.style.x = centerX + Math.cos(childAngle) * radius;
                   child.style.y = centerY + Math.sin(childAngle) * radius;
                   child._angle = childAngle;
                 });
-                
-                // 移动到下一个组的起始位置
-                currentAngle += groupAngle + (groupGap * scaleFactor);
               });
               
               // 处理未连接的节点，分布在剩余空间
