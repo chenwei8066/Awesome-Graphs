@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>有效订单量指标图谱 - 圆形布局</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://at.alicdn.com/t/a/font_470089_8hnbbf8n4u8.css" />
+    <style>
+      html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+      #network { width: calc(100% - 360px); height: 100%; background-color: #fafbfc; }
+      .search-bar { position: absolute; top: 24px; left: 12px; z-index: 2; width: 360px; font-size: 14px; box-shadow: 0 0 8px rgba(0,0,0,0.1); border-radius: 8px; background-color: #fff; }
+      #searchInput, #searchButton { font-size: 14px; }
+      #search-list { position: absolute; top: 72px; left: 12px; z-index: 999; width: 360px; background-color: #fff; display: none; font-size: 14px; text-align: left; max-height: 480px; overflow-y: auto; padding: 8px 12px; border: 1px solid #eee; border-radius: 6px; }
+      .alert-message { font-size: 14px; width: 360px; height: fit-content; top: 72px; left: 12px; line-height: 24px; padding: 6px 0 6px 12px; position: absolute; z-index: 1; }
+      .btn-close:focus { box-shadow: none; }
+      #node-detail { 
+        position: fixed; 
+        right: 0; 
+        top: 0; 
+        width: 360px; 
+        height: 100vh;
+        background: #fff; 
+        border-left: 1px solid #e5e7eb; 
+        box-shadow: -2px 0 6px rgba(0,0,0,0.04); 
+        z-index: 1000; 
+        display: block;
+        overflow: hidden;
+      }
+      .detail-header { 
+        padding: 16px 20px 12px; 
+        border-bottom: 1px solid #f3f4f6; 
+        background: #fafbfc;
+      }
+      .detail-title { 
+        font-size: 16px; 
+        font-weight: 700; 
+        color: #111827; 
+        margin: 0;
+      }
+      .detail-content { 
+        padding: 16px 20px; 
+        height: calc(100vh - 80px);
+        overflow-y: auto;
+      }
+      .g6-toolbar { background: #fff; border-radius: 8px !important; bottom: 50% !important; flex-direction: column !important; gap: 4px; left: 12px !important; opacity: 1 !important; padding: 4px !important; }
+      .g6-toolbar-item { display: flex !important; }
+      .metric-line { font-size: 12px; color: #111; }
+      .metric-line .k { color: #6b7280; margin-right: 4px; }
+      .metric-line .v { font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <div class="input-group mb-3 search-bar">
+      <input type="text" id="searchInput" class="form-control" placeholder="搜索指标，如 DAU、访购率、营销补贴" aria-describedby="searchButton" />
+      <button id="searchButton" class="btn btn-outline-secondary" type="button">Search</button>
+    </div>
+    <div id="search-list"></div>
+    <div id="live-alert"></div>
+    <div id="node-detail">
+      <div class="detail-header">
+        <h3 class="detail-title" id="detail-title">指标详情</h3>
+      </div>
+      <div class="detail-content" id="detail-content">
+        <div style="color: #9ca3af; text-align: center; padding: 40px 20px; font-size: 14px;">
+          点击图谱中的节点查看详细信息
+        </div>
+      </div>
+    </div>
+    <div id="loading-status" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 18px; z-index: 1000;">加载中...</div>
+    <div id="network"></div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/fuzzy@0.1.3/lib/fuzzy.js"></script>
+    <script src="https://unpkg.com/@antv/g6@5/dist/g6.min.js"></script>
+    <script type="module">
+      const BG_COLOR = '#fafbfc';
+      // 健康状态颜色系统
+      const HEALTHY_COLOR = '#059669';    // 绿色 - 健康状态
+      const WARNING_COLOR = '#f59e0b';    // 黄色 - 预警状态  
+      const PROBLEM_COLOR = '#dc2626';    // 红色 - 有问题状态
+      const UNKNOWN_COLOR = '#6b7280';    // 灰色 - 未知状态
+      const UNI_EDGE = '#94a3b8';
+      const ROLLUP_EDGE = '#6366f1';
+      const INFLU_EDGE = '#0891b2';
+
+      // 默认fallback数据（在无法从 JSON 加载时使用）
+      const defaultNodes = [
+        { id: '有效订单量', _type: 'metric', _domain: '核心', _level: 0, _category: 'business_target', _weight: 1.0, _status: 'healthy' },
+        { id: 'DAU', _type: 'metric', _domain: '用户', _level: 1, _category: 'core_metric', _weight: 0.9, _description: '日活跃用户数', _status: 'healthy' },
+        { id: '访购率', _type: 'metric', _domain: '转化', _level: 1, _category: 'core_metric', _weight: 0.9, _description: '访问用户到购买的转化率', _status: 'warning' },
+        { id: '下单频次', _type: 'metric', _domain: '行为', _level: 1, _category: 'core_metric', _weight: 0.8, _description: '用户平均下单次数', _status: 'healthy' },
+        { id: '笔单价', _type: 'metric', _domain: '收益', _level: 1, _category: 'core_metric', _weight: 0.8, _description: '平均订单金额', _status: 'problem' },
+        { id: '闪购DAU', _type: 'metric', _domain: '闪购', _level: 2, _category: 'segment', _weight: 0.7, _status: 'healthy' },
+        { id: '非闪购DAU', _type: 'metric', _domain: '非闪购', _level: 2, _category: 'segment', _weight: 0.6, _status: 'warning' },
+        { id: 'ET端DAU', _type: 'metric', _domain: '闪购', _level: 3, _category: 'platform', _weight: 0.6, _status: 'healthy' },
+        { id: '营销补贴', _type: 'factor', _domain: '营销', _level: 2, _category: 'conversion_factor', _weight: 0.7, _description: '影响访购率的营销因素', _status: 'problem' },
+        { id: '供给丰富度', _type: 'factor', _domain: '供给', _level: 2, _category: 'conversion_factor', _weight: 0.8, _description: '商户和商品供给情况', _status: 'healthy' }
+      ];
+      const defaultEdges = [
+        { from: 'DAU', to: '有效订单量', _type: 'rollup', _impact: 0.25 },
+        { from: '访购率', to: '有效订单量', _type: 'rollup', _impact: 0.25 },
+        { from: '下单频次', to: '有效订单量', _type: 'rollup', _impact: 0.25 },
+        { from: '笔单价', to: '有效订单量', _type: 'rollup', _impact: 0.25 },
+        { from: '闪购DAU', to: 'DAU', _type: 'rollup', _impact: 0.6 },
+        { from: '非闪购DAU', to: 'DAU', _type: 'rollup', _impact: 0.4 },
+        { from: 'ET端DAU', to: '闪购DAU', _type: 'rollup', _impact: 0.6 },
+        { from: '营销补贴', to: '访购率', _type: 'influences', _impact: 0.4 },
+        { from: '供给丰富度', to: '访购率', _type: 'influences', _impact: 0.35 }
+      ];
+
+      const idOf = G6.idOf;
+
+      const transformData = (data) => {
+        (data.edges || []).forEach((e) => { e.source = e.from; e.target = e.to; });
+        return data;
+      };
+
+      // 红色问题节点判断函数
+      const isRedNode = (nodeId) => {
+        const redNodes = [
+          '访购率',           // L1
+          '营销补贴', '供给丰富度', '物流体验',  // L2
+          '发放形式', '发放渠道', '热销品下架', '20min超时率',  // L3
+          '特殊人群DAU',       // L4
+          // 根据图片新增的红圈节点
+          '访购率-内购-分流-ET-新客-L126',
+          '访购率-内购-分流-ET',
+          '访购率-内购-分流-EA',
+          '全用',
+          '人工',
+          '商品',  // 新增商品指标为红色
+          // 新增闪购相关红色节点
+          '访购率-闪购',
+          '访购率-闪购-分端-ET',
+          '访购率-闪购-分端-ET-新客-L126',
+          '天降'
+        ];
+        return redNodes.includes(nodeId);
+      };
+
+      // 橙色预警节点判断函数
+      const isOrangeNode = (nodeId) => {
+        const orangeNodes = [
+          '下单频次',         // L1 - 核心指标预警
+          '微信小程序DAU',     // L3 - 平台预警
+          '营业商户数',       // L3 - 供给预警
+          '列表T',           // L3 - 物流预警
+          '老客DAU-L3'       // L4 - 用户群体预警
+        ];
+        return orangeNodes.includes(nodeId);
+      };
+
+      // 节点颜色判断 - 红色/橙色/绿色三级体系
+      const colorByHealthStatus = (node) => {
+        if (isRedNode(node.id)) return '#dc2626';     // 红色 - 严重问题
+        if (isOrangeNode(node.id)) return '#f59e0b';  // 橙色 - 预警状态
+        return '#059669';                             // 绿色 - 正常状态
+      };
+
+
+      const sizeBy = (nodeId, nodes, edges, minSize = 20, maxSize = 90) => {
+        const node = nodes.find((n) => n.id === nodeId) || {};
+        const degree = edges.filter((e) => e.source === nodeId || e.target === nodeId).length;
+        const weight = Number(node._weight || 0);
+        // 影响力 = 0.7*度数标准化 + 0.3*权重
+        const degrees = nodes.map((n) => edges.filter((e) => e.source === n.id || e.target === n.id).length);
+        const minD = Math.min(...degrees, 0);
+        const maxD = Math.max(...degrees, 1);
+        const normD = (degree - minD) / (maxD - minD || 1);
+        const influence = 0.7 * normD + 0.3 * Math.min(weight, 1);
+        return minSize + influence * (maxSize - minSize);
+      };
+
+      class ConcentricCirclesLayout extends G6.BaseLayout {
+        async execute(data) {
+          const layoutParams = calculateLayoutParams();
+          const { nodeSize = 40 } = this.options;
+          
+          console.log(`使用同心圆布局, 屏幕比例: ${layoutParams.aspectRatio.toFixed(2)}`);
+          const nodes = data.nodes.map(node => ({
+            id: node.id,
+            style: { ...node.style },
+            _level: node._level || 0,
+            _weight: node._weight || 0.5,
+            _category: node._category,
+            size: this.options.nodeSize ? this.options.nodeSize(node) : nodeSize
+          }));
+
+          // 按层级分组
+          const layersObject = {};
+          nodes.forEach(node => {
+            const level = node._level;
+            if (!(level in layersObject)) layersObject[level] = [];
+            layersObject[level].push(node);
+          });
+
+          // 处理孤立节点
+          const connectedNodes = new Set();
+          data.edges.forEach(edge => {
+            connectedNodes.add(edge.source);
+            connectedNodes.add(edge.target);
+          });
+
+          const isolatedNodes = nodes.filter(n => !connectedNodes.has(n.id));
+          if (isolatedNodes.length > 0) {
+            const maxLevel = Math.max(...Object.keys(layersObject).map(Number));
+            const isolatedLevel = maxLevel + 1;
+            layersObject[isolatedLevel] = isolatedNodes.map(node => {
+              node._level = isolatedLevel;
+              return node;
+            });
+          }
+
+          const sortedLevels = Object.keys(layersObject).map(Number).sort((a, b) => a - b);
+          
+          // 计算同心圆布局参数
+          const centerX = 0;
+          const centerY = 0;
+          
+          // 固定半径设计，确保清晰的同心圆效果
+          const radiusForLevel = (level, nodeCount) => {
+            if (level === 0) return 0; // 中心层
+            
+            // 固定递增半径，确保层级清晰且视觉效果好
+            const baseRadius = level * 120; // 每层间距120px
+            
+            // 根据节点数量微调半径，确保不拥挤
+            const minRadiusForCount = (nodeCount * 80) / (2 * Math.PI); // 每个节点需要80px弧长
+            
+            return Math.max(baseRadius, minRadiusForCount);
+          };
+          
+          // 为每层计算位置，保持父子节点的角度邻近性
+          sortedLevels.forEach(level => {
+            const layer = layersObject[level];
+            const layerSize = layer.length;
+            
+            // L0层（根节点）放在中心
+            if (level === 0) {
+              layer.forEach(node => {
+                node.style.x = centerX;
+                node.style.y = centerY;
+              });
+              return;
+            }
+            
+            // 计算该层的半径
+            const radius = radiusForLevel(level, layerSize);
+            
+            if (level === 1) {
+              // 第一层：均匀分布在圆周上
+              layer.forEach((node, index) => {
+                const angle = -Math.PI / 2 + (index * 2 * Math.PI) / layerSize;
+                node.style.x = centerX + Math.cos(angle) * radius;
+                node.style.y = centerY + Math.sin(angle) * radius;
+                node._angle = angle; // 记录角度，供下一层使用
+              });
+            } else {
+              // 其他层：为父节点分配不重叠的扇形区域
+              const prevLevel = level - 1;
+              const prevLayer = layersObject[prevLevel] || [];
+              
+              // 为每个父节点创建子节点组
+              const parentGroups = {};
+              const unconnectedNodes = [];
+              
+              // 找到每个节点的父节点
+              layer.forEach(node => {
+                let parentFound = false;
+                data.edges.forEach(edge => {
+                  let parentId = null;
+                  if (edge.target === node.id) {
+                    parentId = edge.source;
+                  } else if (edge.source === node.id) {
+                    parentId = edge.target;
+                  }
+                  
+                  if (parentId) {
+                    const parent = prevLayer.find(n => n.id === parentId);
+                    if (parent) {
+                      if (!parentGroups[parentId]) {
+                        parentGroups[parentId] = {
+                          parent: parent,
+                          children: []
+                        };
+                      }
+                      parentGroups[parentId].children.push(node);
+                      parentFound = true;
+                    }
+                  }
+                });
+                
+                if (!parentFound) {
+                  unconnectedNodes.push(node);
+                }
+              });
+              
+              // 计算每个父节点组需要的角度空间
+              const parentGroupsArray = Object.values(parentGroups);
+              const nodeSize = 50;
+              const minGap = 15;
+              const groupGap = 0.2; // 父组间的间隔角度(弧度)
+              
+              // 为每个父组计算所需角度
+              parentGroupsArray.forEach(group => {
+                const childCount = group.children.length;
+                const arcLengthPerNode = nodeSize + minGap;
+                const requiredArcLength = childCount * arcLengthPerNode;
+                group.requiredAngle = requiredArcLength / radius;
+              });
+              
+              // 按父节点在上一层的角度顺序排列父组
+              parentGroupsArray.sort((a, b) => {
+                const angleA = a.parent._angle || 0;
+                const angleB = b.parent._angle || 0;
+                return angleA - angleB;
+              });
+              
+              // 计算总需要角度
+              const totalRequiredAngle = parentGroupsArray.reduce((sum, group) => 
+                sum + group.requiredAngle + groupGap, 0
+              ) - groupGap; // 最后一个组后面不需要间隔
+              
+              // 如果总角度超过2π，按比例缩放
+              const scaleFactor = totalRequiredAngle > 2 * Math.PI ? (2 * Math.PI) / totalRequiredAngle : 1;
+              
+              // 分配角度区域给每个父组
+              let currentAngle = -Math.PI; // 从左侧开始
+              
+              parentGroupsArray.forEach(group => {
+                const parent = group.parent;
+                const children = group.children;
+                const childCount = children.length;
+                
+                // 计算这个组的角度范围
+                const groupAngle = group.requiredAngle * scaleFactor;
+                const angleStep = childCount > 1 ? groupAngle / (childCount - 1) : 0;
+                const groupStartAngle = currentAngle;
+                
+                // 在组内分配子节点
+                children.forEach((child, index) => {
+                  const childAngle = groupStartAngle + (index * angleStep);
+                  child.style.x = centerX + Math.cos(childAngle) * radius;
+                  child.style.y = centerY + Math.sin(childAngle) * radius;
+                  child._angle = childAngle;
+                });
+                
+                // 移动到下一个组的起始位置
+                currentAngle += groupAngle + (groupGap * scaleFactor);
+              });
+              
+              // 处理未连接的节点，分布在剩余空间
+              if (unconnectedNodes.length > 0) {
+                const usedAngleRanges = parentGroupsArray.map(group => ({
+                  start: Math.min(...group.children.map(c => c._angle)),
+                  end: Math.max(...group.children.map(c => c._angle))
+                }));
+                
+                // 简单地在剩余角度空间均匀分布
+                unconnectedNodes.forEach((node, index) => {
+                  const angle = currentAngle + (index * 0.3); // 间隔分布
+                  node.style.x = centerX + Math.cos(angle) * radius;
+                  node.style.y = centerY + Math.sin(angle) * radius;
+                  node._angle = angle;
+                });
+              }
+            }
+          });
+
+          // 防重叠调整
+          this.resolveOverlaps(nodes);
+
+          return { nodes };
+        }
+
+        // 防重叠调整方法
+        resolveOverlaps(nodes) {
+          const maxIterations = 10;
+          const minDistance = 55; // 节点间最小距离
+          
+          for (let iteration = 0; iteration < maxIterations; iteration++) {
+            let hasOverlap = false;
+            
+            for (let i = 0; i < nodes.length; i++) {
+              for (let j = i + 1; j < nodes.length; j++) {
+                const nodeA = nodes[i];
+                const nodeB = nodes[j];
+                
+                // 跳过中心节点
+                if (nodeA._level === 0 || nodeB._level === 0) continue;
+                
+                // 只检查相邻层级的节点
+                if (Math.abs(nodeA._level - nodeB._level) > 1) continue;
+                
+                const dx = nodeA.style.x - nodeB.style.x;
+                const dy = nodeA.style.y - nodeB.style.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < minDistance && distance > 0) {
+                  hasOverlap = true;
+                  
+                  // 计算调整方向
+                  const overlap = minDistance - distance;
+                  const adjustX = (dx / distance) * overlap * 0.5;
+                  const adjustY = (dy / distance) * overlap * 0.5;
+                  
+                  // 对于同心圆布局，保持节点在其所属圆圈上
+                  if (nodeA._level === nodeB._level) {
+                    // 同层节点：沿着圆周调整角度
+                    const radiusA = Math.sqrt(nodeA.style.x * nodeA.style.x + nodeA.style.y * nodeA.style.y);
+                    const radiusB = Math.sqrt(nodeB.style.x * nodeB.style.x + nodeB.style.y * nodeB.style.y);
+                    
+                    let angleA = Math.atan2(nodeA.style.y, nodeA.style.x);
+                    let angleB = Math.atan2(nodeB.style.y, nodeB.style.x);
+                    
+                    // 调整角度
+                    const angleAdjust = (overlap / Math.max(radiusA, radiusB)) * 0.5;
+                    angleA += angleAdjust;
+                    angleB -= angleAdjust;
+                    
+                    nodeA.style.x = Math.cos(angleA) * radiusA;
+                    nodeA.style.y = Math.sin(angleA) * radiusA;
+                    nodeA._angle = angleA;
+                    
+                    nodeB.style.x = Math.cos(angleB) * radiusB;
+                    nodeB.style.y = Math.sin(angleB) * radiusB;
+                    nodeB._angle = angleB;
+                  } else {
+                    // 不同层节点：径向调整
+                    nodeA.style.x += adjustX * 0.3;
+                    nodeA.style.y += adjustY * 0.3;
+                    nodeB.style.x -= adjustX * 0.3;
+                    nodeB.style.y -= adjustY * 0.3;
+                  }
+                }
+              }
+            }
+            
+            if (!hasOverlap) break;
+          }
+        }
+      }
+
+      class ClickElement extends G6.BaseBehavior {
+        constructor(context, options) { super(context, options); this.bindEvents(); }
+        async clearState() { const { graph } = this.context; const { nodes, edges } = graph.getData(); const s = {}; [...nodes, ...edges].forEach(d => s[idOf(d)] = []); await graph.setElementState(s, false); }
+        onNodeClick = async (event) => {
+          await this.clearState();
+          toggleListVisibility(false);
+          const { direction = 'out', onlyNeighbors } = event;
+          const nodeId = event.target.id; const { graph } = this.context; const { nodes, edges } = graph.getData();
+          let relatedIds;
+          
+          if (onlyNeighbors) {
+            const neighborNodes = graph.getNeighborNodesData(nodeId);
+            const neighborEdges = graph.getRelatedEdgesData(nodeId);
+            const oneLevelIds = [...neighborNodes, ...neighborEdges].map(idOf);
+            relatedIds = [...oneLevelIds, nodeId];
+            graph.updateNodeData(prev => prev.filter(n => relatedIds.includes(n.id) && (n.style.level = oneLevelIds.includes(n.id) ? 1 : 0)));
+            const states = {}; [...nodes, ...edges].forEach(d => states[idOf(d)] = relatedIds.includes(idOf(d)) ? ['link'] : ['inactive']);
+            await graph.setElementState(states);
+          } else {
+            const levels = getLevelMap(nodeId, direction);
+            relatedIds = Object.keys(levels);
+            graph.updateNodeData(prev => prev.filter(n => relatedIds.includes(n.id) && (n.style.level = levels[n.id])));
+            graph.updateEdgeData(prev => prev.filter(e => (levels[e.source] || levels[e.target]) && (e.style.level = Math.min(levels[e.source], levels[e.target]))));
+            
+            const states = {}; 
+            nodes.forEach(n => states[n.id] = relatedIds.includes(n.id) ? ['link'] : ['inactive']);
+            // 修改边高亮逻辑：只要边连接到选中节点就高亮
+            edges.forEach(e => {
+              const isConnectedToSelected = (e.source === nodeId || e.target === nodeId);
+              const isInRelatedPath = relatedIds.includes(e.source) && relatedIds.includes(e.target);
+              states[idOf(e)] = (isConnectedToSelected || isInRelatedPath) ? ['link'] : ['inactive'];
+            });
+            await graph.setElementState(states);
+          }
+        };
+        onCanvasClick = async () => { await this.clearState(); toggleListVisibility(false); clearSearchInput(); };
+        bindEvents() { const { graph } = this.context; graph.on('node:click', this.onNodeClick); graph.on('canvas:click', this.onCanvasClick); }
+        unbindEvents() { const { graph } = this.context; graph.off('node:click', this.onNodeClick); graph.off('canvas:click', this.onCanvasClick); }
+        destroy() { this.unbindEvents(); super.destroy(); }
+      }
+
+      const getLevelMap = (nodeId, direction) => {
+        const stack = [nodeId]; const visited = new Set(); const levelMap = { [nodeId]: 0 };
+        const processEdge = (source, target, parentLevel) => { if (!visited.has(target)) { const nl = parentLevel + 1; if (!levelMap[target] || nl < levelMap[target]) { levelMap[target] = nl; stack.push(target); } } };
+        while (stack.length) { const id = stack.pop(); if (!visited.has(id)) { visited.add(id); const pl = levelMap[id]; const related = graph.getRelatedEdgesData(id); related.forEach(edge => {
+          if (direction === 'out') { if (edge.source === id) processEdge(edge.source, edge.target, pl); else if (edge._bidirectional) processEdge(edge.target, edge.source, pl); }
+          else if (direction === 'in') { if (edge.target === id) processEdge(edge.target, edge.source, pl); else if (edge._bidirectional) processEdge(edge.source, edge.target, pl); }
+        }); } }
+        return levelMap;
+      };
+
+      const toggleListVisibility = (isShow) => { document.getElementById('search-list').style.display = isShow ? 'block' : 'none'; };
+      const clearSearchInput = () => { document.getElementById('searchInput').value = ''; };
+      const removeElement = (el) => { while (el.firstChild) el.removeChild(el.firstChild); };
+
+      class SearchBar extends G6.BasePlugin {
+        liveAlert = document.getElementById('live-alert');
+        searchInput = document.getElementById('searchInput');
+        searchButton = document.getElementById('searchButton');
+        target;
+        constructor(context, options) { super(context, options); this.bindEvents(); }
+        appendAlert = (message, type) => { removeElement(this.liveAlert); const w = document.createElement('div'); w.innerHTML = [`<div class="alert alert-${type} alert-dismissible alert-message" role="alert">`, `   <div>${message}</div>`, '   <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>', '</div>'].join(''); this.liveAlert.append(w); };
+        handleInputKeyup = (event) => {
+          const { graph } = this.context; removeElement(this.liveAlert);
+          const PRE = '<b style="color: #1783FF;">'; const POST = '</b>';
+          const data = graph.getData(); const nodeList = data.nodes.map(n => ({ id: n.id }));
+          const filtered = fuzzy.filter(this.searchInput.value, nodeList, { pre: PRE, post: POST, extract: el => el.id });
+          const sorted = filtered.sort((a, b) => { const regx = new RegExp(PRE, 'g'); const ac = (a.string.match(regx) || []).length; const bc = (b.string.match(regx) || []).length; if (ac !== bc) return bc - ac; const regx2 = new RegExp(POST + PRE, 'g'); const as = (a.string.match(regx2) || []).length; const bs = (b.string.match(regx2) || []).length; if (as !== bs) return bs - as; return a.string.indexOf(PRE) - b.string.indexOf(PRE); });
+          document.getElementById('search-list').innerHTML = sorted.map(el => `<div class="mb-1">${el.string}</div>`).join('');
+          this.target = sorted[0]?.original.id || '';
+          toggleListVisibility(true);
+          if (event.keyCode === 13) { event.preventDefault(); this.searchButton.click(); }
+          else if (this.searchInput.value === '') { graph.emit('canvas:click', { targetType: 'canvas' }); }
+        };
+        handleButtonClick = async () => { const { graph } = this.context; const v = this.searchInput.value; if (!v) return; if (!this.target) { this.appendAlert(`未找到 “${v}”`, 'warning'); graph.emit('canvas:click', { targetType: 'canvas' }); }
+          graph.emit('node:click', { target: graph.getNodeData(this.target), targetType: 'node', direction: 'out' }); await graph.fitView(); };
+        bindEvents() { this.searchInput.addEventListener('keyup', this.handleInputKeyup); this.searchButton.addEventListener('click', this.handleButtonClick); }
+        unbindEvents() { this.searchInput.removeEventListener('keyup', this.handleInputKeyup); this.searchButton.removeEventListener('click', this.handleButtonClick); }
+        destroy() { this.unbindEvents(); super.destroy(); }
+      }
+
+      class DetailContent extends G6.BasePlugin {
+        detailTitle = document.getElementById('detail-title');
+        detailContent = document.getElementById('detail-content');
+        
+        constructor(context, options) { 
+          super(context, options); 
+          this.bindEvents(); 
+        }
+        
+        updateContent = (node) => {
+          if (!node) return;
+          
+          // 设置标题
+          this.detailTitle.textContent = node.id;
+          
+          // 清空内容区域
+          removeElement(this.detailContent);
+          
+          const line = (k, v, color) => { 
+            const div = document.createElement('div'); 
+            div.className = 'metric-line'; 
+            div.style.marginBottom = '12px';
+            div.style.paddingBottom = '8px';
+            div.style.borderBottom = '1px solid #f3f4f6';
+            const valueSpan = color ? `<span style="color: ${color}; font-weight: 600; font-size: 14px;">${v}</span>` : `<span style="font-weight: 600; font-size: 14px; color: #111827;">${v}</span>`;
+            div.innerHTML = `<div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">${k}</div>${valueSpan}`; 
+            return div; 
+          };
+
+          const sectionTitle = (title) => {
+            const div = document.createElement('div');
+            div.style.cssText = 'font-weight: 700; font-size: 15px; color: #374151; margin: 20px 0 12px 0; padding-bottom: 6px; border-bottom: 2px solid #e5e7eb;';
+            div.textContent = title;
+            return div;
+          };
+
+          // 当前指标值
+          const mockCurrentValue = this.getMockCurrentValue(node);
+          const healthStatus = this.getHealthStatus(node);
+          
+          // 创建紧凑的当前值显示
+          const currentValueDiv = document.createElement('div');
+          currentValueDiv.style.cssText = 'background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 16px;';
+          currentValueDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-size: 24px; font-weight: 700; color: #111827;">${mockCurrentValue.value}</span>
+              <span style="font-size: 14px; font-weight: 600; color: ${healthStatus.color}; background: rgba(${healthStatus.color === '#dc2626' ? '220,38,38' : healthStatus.color === '#f59e0b' ? '245,158,11' : '5,150,105'}, 0.1); padding: 2px 8px; border-radius: 4px;">${healthStatus.text}</span>
+            </div>
+            <div style="font-size: 14px; color: ${mockCurrentValue.changeColor}; font-weight: 600;">
+              ${mockCurrentValue.change} 环比
+            </div>
+          `;
+          this.detailContent.appendChild(currentValueDiv);
+
+          // 下级指标值（紧凑显示）
+          const subMetrics = this.getSubMetrics(node);
+          if (subMetrics.length > 0) {
+            const subMetricsDiv = document.createElement('div');
+            subMetricsDiv.style.cssText = 'margin-bottom: 16px;';
+            subMetricsDiv.innerHTML = `
+              <div style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 12px;">下级指标</div>
+              ${subMetrics.map(metric => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin-bottom: 4px; background: #ffffff; border: 1px solid #f3f4f6; border-radius: 6px;">
+                  <span style="font-size: 13px; color: #374151; font-weight: 500;">${metric.name}</span>
+                  <span style="font-size: 13px; color: #111827; font-weight: 600;">${metric.value}</span>
+                </div>
+              `).join('')}
+            `;
+            this.detailContent.appendChild(subMetricsDiv);
+          }
+
+          // 历史趋势图
+          const trendTitle = document.createElement('div');
+          trendTitle.style.cssText = 'font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 12px;';
+          trendTitle.textContent = '历史趋势';
+          this.detailContent.appendChild(trendTitle);
+          this.detailContent.appendChild(this.createTrendChart(node));
+
+          // 负责团队
+          const teamInfo = this.getTeamInfo(node);
+          if (teamInfo) {
+            const teamDiv = document.createElement('div');
+            teamDiv.style.cssText = 'margin-top: 20px; padding: 16px; background: #f9fafb; border-radius: 8px; border: 1px solid #f3f4f6;';
+            teamDiv.innerHTML = `
+              <div style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 12px;">负责团队</div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 13px; color: #6b7280;">团队</span>
+                <span style="font-size: 13px; color: #111827; font-weight: 500;">${teamInfo.team}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 13px; color: #6b7280;">负责人</span>
+                <span style="font-size: 13px; color: #111827; font-weight: 500;">${teamInfo.owner}</span>
+              </div>
+            `;
+            this.detailContent.appendChild(teamDiv);
+          }
+        };
+
+        // 获取团队信息（模拟数据）
+        getTeamInfo = (node) => {
+          const teams = [
+            { team: '数据分析团队', owner: '张三' },
+            { team: '产品运营团队', owner: '李四' },
+            { team: '市场营销团队', owner: '王五' },
+            { team: '用户增长团队', owner: '赵六' },
+            { team: '供应链团队', owner: '钱七' },
+            { team: '物流配送团队', owner: '孙八' }
+          ];
+          
+          // 根据节点ID哈希选择团队
+          const index = node.id.charCodeAt(0) % teams.length;
+          return teams[index];
+        };
+
+        // 获取模拟的当前指标值
+        getMockCurrentValue = (node) => {
+          const baseValues = {
+            '有效订单量': { value: '1.2M', change: '+5.3%', isPositive: true },
+            '访购率': { value: '12.5%', change: '-2.1%', isPositive: false },
+            'DAU': { value: '850K', change: '+8.7%', isPositive: true },
+            '下单频次': { value: '2.8', change: '-1.2%', isPositive: false },
+            '笔单价': { value: '¥45.6', change: '+3.4%', isPositive: true }
+          };
+          
+          const defaultValue = {
+            value: Math.floor(Math.random() * 1000) + 'K',
+            change: (Math.random() > 0.5 ? '+' : '-') + (Math.random() * 10).toFixed(1) + '%',
+            isPositive: Math.random() > 0.5
+          };
+          
+          const data = baseValues[node.id] || defaultValue;
+          return {
+            value: data.value,
+            change: data.change,
+            color: '#111827',
+            changeColor: data.isPositive ? '#059669' : '#dc2626'
+          };
+        };
+
+        // 获取健康状态
+        getHealthStatus = (node) => {
+          if (isRedNode(node.id)) {
+            return { text: '异常', color: '#dc2626' };
+          }
+          if (isOrangeNode(node.id)) {
+            return { text: '预警', color: '#f59e0b' };
+          }
+          return { text: '健康', color: '#059669' };
+        };
+
+        // 获取下级指标（指向当前节点的节点）
+        getSubMetrics = (node) => {
+          const { graph } = this.context;
+          const { edges } = graph.getData();
+          
+          // 找到当前节点指向的节点（下级节点/组成部分）
+          const subNodes = [];
+          edges.forEach(edge => {
+            if (edge.source === node.id) {
+              subNodes.push({
+                name: edge.target,
+                value: Math.floor(Math.random() * 100) + '%',
+                color: '#6b7280'
+              });
+            }
+          });
+          return subNodes.slice(0, 5); // 最多显示5个
+        };
+
+        // 创建趋势图
+        createTrendChart = (node) => {
+          const container = document.createElement('div');
+          container.style.cssText = 'width: 100%; height: 120px; background: #ffffff; border: 1px solid #f3f4f6; border-radius: 6px; position: relative; overflow: hidden; padding: 12px;';
+          
+          // 生成更真实的30天趋势数据
+          const points = [];
+          let baseValue = 60 + Math.random() * 20; // 基础值在60-80之间
+          const trend = (Math.random() - 0.5) * 0.5; // 整体趋势
+          
+          for (let i = 0; i < 30; i++) {
+            // 添加趋势性变化
+            const trendEffect = trend * i;
+            // 添加周期性变化（模拟周末效应）
+            const cycleEffect = Math.sin((i * 2 * Math.PI) / 7) * 3;
+            // 添加随机噪声
+            const randomNoise = (Math.random() - 0.5) * 6;
+            
+            baseValue = baseValue + trendEffect + cycleEffect + randomNoise;
+            baseValue = Math.max(20, Math.min(95, baseValue));
+            points.push(baseValue);
+          }
+          
+          // 创建SVG
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('width', '100%');
+          svg.setAttribute('height', '96px');
+          svg.setAttribute('viewBox', '0 0 300 96');
+          svg.setAttribute('preserveAspectRatio', 'none');
+          svg.style.position = 'absolute';
+          svg.style.top = '12px';
+          svg.style.left = '12px';
+          svg.style.right = '12px';
+          svg.style.width = 'calc(100% - 24px)';
+          
+          // 添加网格线
+          const gridGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          gridGroup.setAttribute('opacity', '0.1');
+          
+          // 水平网格线
+          for (let i = 0; i <= 4; i++) {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', '0');
+            line.setAttribute('y1', (i * 96 / 4).toString());
+            line.setAttribute('x2', '300');
+            line.setAttribute('y2', (i * 96 / 4).toString());
+            line.setAttribute('stroke', '#94a3b8');
+            line.setAttribute('stroke-width', '1');
+            gridGroup.appendChild(line);
+          }
+          
+          // 垂直网格线（每周一条）
+          for (let i = 0; i <= 4; i++) {
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            const x = (i * 300 / 4);
+            line.setAttribute('x1', x.toString());
+            line.setAttribute('y1', '0');
+            line.setAttribute('x2', x.toString());
+            line.setAttribute('y2', '96');
+            line.setAttribute('stroke', '#94a3b8');
+            line.setAttribute('stroke-width', '1');
+            gridGroup.appendChild(line);
+          }
+          
+          svg.appendChild(gridGroup);
+          
+          // 创建渐变填充区域
+          const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+          const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+          gradient.setAttribute('id', `gradient-${node.id.replace(/[^a-zA-Z0-9]/g, '')}`);
+          gradient.setAttribute('x1', '0%');
+          gradient.setAttribute('y1', '0%');
+          gradient.setAttribute('x2', '0%');
+          gradient.setAttribute('y2', '100%');
+          
+          const color = isRedNode(node.id) ? '#dc2626' : isOrangeNode(node.id) ? '#f59e0b' : '#059669';
+          
+          const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+          stop1.setAttribute('offset', '0%');
+          stop1.setAttribute('stop-color', color);
+          stop1.setAttribute('stop-opacity', '0.2');
+          
+          const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+          stop2.setAttribute('offset', '100%');
+          stop2.setAttribute('stop-color', color);
+          stop2.setAttribute('stop-opacity', '0');
+          
+          gradient.appendChild(stop1);
+          gradient.appendChild(stop2);
+          defs.appendChild(gradient);
+          svg.appendChild(defs);
+          
+          // 创建填充区域路径
+          const maxY = Math.max(...points);
+          const minY = Math.min(...points);
+          const range = maxY - minY;
+          const padding = range * 0.1;
+          
+          const normalizedPoints = points.map(p => {
+            return ((maxY + padding - p) / (range + 2 * padding)) * 96;
+          });
+          
+          const areaPath = normalizedPoints.map((point, index) => {
+            const x = (index / (points.length - 1)) * 300;
+            return `${index === 0 ? 'M' : 'L'} ${x} ${point}`;
+          }).join(' ');
+          
+          const areaPathData = areaPath + ` L 300 96 L 0 96 Z`;
+          
+          const areaPathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          areaPathElement.setAttribute('d', areaPathData);
+          areaPathElement.setAttribute('fill', `url(#gradient-${node.id.replace(/[^a-zA-Z0-9]/g, '')})`);
+          svg.appendChild(areaPathElement);
+          
+          // 创建主线路径
+          const linePathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          linePathElement.setAttribute('d', areaPath);
+          linePathElement.setAttribute('fill', 'none');
+          linePathElement.setAttribute('stroke', color);
+          linePathElement.setAttribute('stroke-width', '2.5');
+          linePathElement.setAttribute('stroke-linejoin', 'round');
+          linePathElement.setAttribute('stroke-linecap', 'round');
+          
+          svg.appendChild(linePathElement);
+          
+          // 添加数据点
+          normalizedPoints.forEach((point, index) => {
+            if (index % 3 === 0 || index === normalizedPoints.length - 1) { // 每3个点显示一个
+              const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+              circle.setAttribute('cx', ((index / (points.length - 1)) * 300).toString());
+              circle.setAttribute('cy', point.toString());
+              circle.setAttribute('r', '3');
+              circle.setAttribute('fill', '#ffffff');
+              circle.setAttribute('stroke', color);
+              circle.setAttribute('stroke-width', '2');
+              svg.appendChild(circle);
+            }
+          });
+          
+          container.appendChild(svg);
+          
+          // 添加时间标签
+          const timeLabels = document.createElement('div');
+          timeLabels.style.cssText = 'position: absolute; bottom: 4px; left: 12px; right: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #9ca3af;';
+          timeLabels.innerHTML = `
+            <span>30天前</span>
+            <span>15天前</span>
+            <span>今天</span>
+          `;
+          container.appendChild(timeLabels);
+          
+          // 添加数值范围标签
+          const valueLabels = document.createElement('div');
+          valueLabels.style.cssText = 'position: absolute; top: 12px; left: 2px; height: 96px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: #9ca3af;';
+          valueLabels.innerHTML = `
+            <span>${Math.round(maxY + padding)}</span>
+            <span>${Math.round(minY - padding)}</span>
+          `;
+          container.appendChild(valueLabels);
+          
+          return container;
+        };
+        
+        onNodeClick = (event) => { 
+          const { target } = event; 
+          const { graph } = this.context; 
+          const data = graph.getNodeData(target.id); 
+          this.updateContent(data); 
+        };
+        
+        bindEvents() { 
+          const { graph } = this.context; 
+          graph.on('node:click', this.onNodeClick); 
+        }
+        
+        unbindEvents() { 
+          const { graph } = this.context; 
+          graph.off('node:click', this.onNodeClick); 
+        }
+        
+        destroy() { 
+          this.unbindEvents(); 
+          super.destroy(); 
+        }
+      }
+
+      G6.register('behavior', 'click-element', ClickElement);
+      G6.register('layout', 'concentric-circles', ConcentricCirclesLayout);
+
+      const toolbarOption = { type: 'toolbar', position: 'bottom-left', onClick: (item) => { if (item === 'zoom-in') graph.zoomBy(1.2); if (item === 'zoom-out') graph.zoomBy(0.8); if (item === 'auto-fit') graph.fitView(); }, getItems: () => ([{ id: 'zoom-in', value: 'zoom-in' }, { id: 'zoom-out', value: 'zoom-out' }, { id: 'auto-fit', value: 'auto-fit' }]) };
+
+      const contextmenuOption = { type: 'contextmenu', trigger: 'contextmenu', onClick: (v, element, target) => { if (v === 'reference-network') graph.emit('node:click', { target, targetType: 'node', direction: 'out' }); if (v === 'citation-network') graph.emit('node:click', { target, targetType: 'node', direction: 'in' }); if (v === 'direct-neighbors') graph.emit('node:click', { target, targetType: 'node', onlyNeighbors: true }); graph.fitView(); }, getItems: () => ([{ name: '下游影响网络', value: 'reference-network' }, { name: '上游依赖网络', value: 'citation-network' }, { name: '直接邻居', value: 'direct-neighbors' }]), enable: (e) => e.targetType === 'node' };
+
+      const colorOfEdge = (e) => {
+        const sourceId = e.source || e.from;
+        const targetId = e.target || e.to;
+        
+        // 如果连接的两个节点都是红色，连线用红色
+        if (isRedNode(sourceId) && isRedNode(targetId)) {
+          return '#dc2626'; // 红色 - 严重问题传导
+        }
+        
+        // 如果有一个是红色，一个是橙色，连线用红色
+        if ((isRedNode(sourceId) && isOrangeNode(targetId)) || 
+            (isOrangeNode(sourceId) && isRedNode(targetId))) {
+          return '#dc2626'; // 红色 - 问题传导到预警
+        }
+        
+        // 如果连接的两个节点都是橙色，连线用橙色
+        if (isOrangeNode(sourceId) && isOrangeNode(targetId)) {
+          return '#f59e0b'; // 橙色 - 预警传导路径
+        }
+        
+        // 默认都用灰色
+        return '#94a3b8'; // 灰色 - 正常连接
+      };
+      const lineDashOf = (e) => {
+        if (e._type === 'influences') return [6, 6]; // 影响关系用虚线
+        if (e._type === 'depends') return [3, 3]; // 依赖关系用短虚线
+        return undefined; // rollup用实线
+      };
+
+      // 先注册插件
+      G6.register('plugin', 'search-bar', SearchBar);
+      G6.register('plugin', 'detail-content', DetailContent);
+
+      // 提升为全局，便于行为/函数访问
+      let graph;
+
+      // 计算适应屏幕比例的图谱形状和布局参数
+      const calculateLayoutParams = () => {
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+        const graphWidth = windowWidth - 360; // 减去右侧面板宽度
+        const aspectRatio = graphWidth / windowHeight; // 基于实际图谱区域计算比例
+        
+        // 图谱可用空间计算 - 已经在CSS中为右侧面板预留了360px  
+        const uiReservedWidth = aspectRatio > 1.8 ? 100 : aspectRatio > 1.4 ? 150 : 200; // 搜索框等UI元素
+        const uiReservedHeight = 120; // 减少顶部底部保留空间
+        const availableWidth = graphWidth - uiReservedWidth;
+        const availableHeight = windowHeight - uiReservedHeight;
+        
+        // 计算图谱层级数量和节点分布
+        const nodes = graphData?.nodes || [];
+        const maxLevel = Math.max(...nodes.map(n => n._level || 0), 6);
+        const levelCounts = {};
+        nodes.forEach(n => {
+          const level = n._level || 0;
+          levelCounts[level] = (levelCounts[level] || 0) + 1;
+        });
+        const maxNodesInLevel = Math.max(...Object.values(levelCounts), 1);
+        
+        // 根据屏幕比例决定布局策略
+        let ranksep, gap, layoutMode;
+        
+        if (aspectRatio > 2.0) {
+          // 超宽屏：极度拉伸水平，压缩垂直
+          layoutMode = 'ultra-wide';
+          ranksep = Math.max(400, availableWidth * 0.85 / (maxLevel + 1));
+          gap = Math.max(18, availableHeight / (maxNodesInLevel + 3));
+        } else if (aspectRatio > 1.6) {
+          // 宽屏：标准16:9或21:9
+          layoutMode = 'wide';
+          ranksep = Math.max(320, availableWidth * 0.8 / (maxLevel + 1));
+          gap = Math.max(22, availableHeight / (maxNodesInLevel + 2));
+        } else if (aspectRatio > 1.2) {
+          // 标准屏：4:3到16:10
+          layoutMode = 'standard';
+          ranksep = Math.max(280, availableWidth * 0.75 / (maxLevel + 1));
+          gap = Math.max(28, availableHeight / (maxNodesInLevel + 1));
+        } else {
+          // 竖屏或正方形：调整为更紧凑的布局
+          layoutMode = 'compact';
+          ranksep = Math.max(220, availableWidth * 0.7 / (maxLevel + 1));
+          gap = Math.max(32, availableHeight / (maxNodesInLevel + 1));
+        }
+        
+        // 确保间距在合理范围内，但允许更大的ranksep
+        ranksep = Math.max(200, Math.min(800, ranksep));
+        gap = Math.max(18, Math.min(60, gap));
+        
+        // 动态计算padding，宽屏减少水平padding以充分利用空间
+        const horizontalPadding = aspectRatio > 2.0 ? Math.max(30, windowWidth * 0.02) :
+                                  aspectRatio > 1.6 ? Math.max(40, windowWidth * 0.03) :
+                                  aspectRatio > 1.2 ? Math.max(50, windowWidth * 0.04) :
+                                  Math.max(60, windowWidth * 0.05);
+        const verticalPadding = Math.max(15, windowHeight * 0.025);
+        
+        // 计算其他UI参数
+        const fontSize = Math.max(10, Math.min(16, Math.sqrt(windowWidth * windowHeight) / 120));
+        const labelMaxWidth = 300; // 增加最大宽度，确保长名称完整显示
+        
+        return {
+          ranksep,
+          gap,
+          layoutMode,
+          aspectRatio,
+          availableWidth,
+          availableHeight,
+          maxLevel,
+          maxNodesInLevel,
+          padding: [verticalPadding, horizontalPadding, verticalPadding, horizontalPadding],
+          fontSize,
+          labelMaxWidth,
+          // 布局微调参数
+          verticalSpread: aspectRatio > 1.8 ? 0.1 : aspectRatio > 1.4 ? 0.15 : 0.2,
+          randomOffset: aspectRatio > 1.8 ? 0.03 : aspectRatio > 1.4 ? 0.05 : 0.08
+        };
+      };
+
+      let graphData = null; // 全局存储数据用于重新计算
+
+      const buildGraph = async (data) => {
+        console.log('构建图谱，输入数据:', data);
+        graphData = data; // 存储数据
+        const transformedData = transformData(data);
+        console.log('转换后数据:', transformedData);
+        
+        const layoutParams = calculateLayoutParams();
+        console.log('计算的布局参数:', layoutParams);
+        
+        graph = new G6.Graph({
+          container: 'network',
+          data: transformedData,
+          animation: false,
+          autoFit: 'view',
+          padding: layoutParams.padding,
+          background: BG_COLOR,
+          node: {
+            style: {
+              size: (d) => {
+                // 同心圆布局中，每层节点大小一致，根据层级稍作区分
+                const level = d._level || 0;
+                if (level === 0) return 60; // 根节点稍大
+                return 45; // 其他节点统一大小
+              },
+              fill: (d) => colorByHealthStatus(d),
+              iconFontFamily: 'iconfont',
+              iconText: (d) => {
+                if (d._category === 'business_target') return '\uE65F'; // 目标
+                if (d._category === 'core_metric') return '\uE7B0'; // 指标
+                if (d._category === 'segment' || d._category === 'platform') return '\uE6AB'; // 平台
+                if (d._category === 'user_group' || d._category === 'user_type') return '\uE65D'; // 用户
+                if (d._category === 'conversion_factor' || d._type === 'factor') return '\uE6CA'; // 因子
+                if (d._category === 'marketing_tool' || d._type === 'tool') return '\uE6BB'; // 工具
+                return '\uE7B0';
+              },
+              label: true,
+              labelText: (d) => d.id, // 只显示节点名称，确保完整展示
+              labelFontSize: layoutParams.fontSize,
+              labelBackground: true,
+              labelBackgroundFill: 'rgba(255,255,255,0.9)',
+              labelPadding: [2, 8],
+              labelBackgroundRadius: 4,
+              labelMaxWidth: layoutParams.labelMaxWidth,
+              labelWordWrap: true
+            },
+            state: {
+              inactive: { fill: '#cbd5e1', iconOpacity: 0.6, labelBackground: false },
+              link: { labelFontWeight: 'bold', halo: (d) => d.style.level === 0 }
+            }
+          },
+          edge: {
+            style: {
+              stroke: (e) => colorOfEdge(e),
+              lineDash: (e) => lineDashOf(e),
+              endArrow: true,
+              lineWidth: (e) => 1 + 2 * Number(e._impact || 0),
+              type: (e) => {
+                // 根据关系类型选择不同的连线样式
+                if (e._type === 'influences') return 'quadratic'; // 影响关系用曲线
+                if (e._type === 'depends') return 'cubic'; // 依赖关系用贝塞尔曲线
+                return 'polyline'; // rollup用折线（更有机）
+              },
+              controlPoints: (e) => {
+                // 为不同类型的边添加控制点，增加有机感
+                if (e._type === 'influences') {
+                  return [{ x: 0.3, y: 0.2 }, { x: 0.7, y: -0.2 }]; // 轻微波浪
+                }
+                if (e._type === 'depends') {
+                  return [{ x: 0.25, y: -0.3 }, { x: 0.75, y: 0.3 }]; // S形曲线
+                }
+                return undefined; // rollup保持直线或轻微弯曲
+              },
+              opacity: 0.8,
+              strokeOpacity: 0.8
+            },
+            state: {
+              inactive: { opacity: 0.15, strokeOpacity: 0.15 },
+              link: { 
+                lineWidth: (e) => 1.5 + 2 * Number(e._impact || 0), 
+                halo: false,
+                opacity: 1,
+                strokeOpacity: 1
+              }
+            }
+          },
+          layout: [
+            { type: 'concentric-circles', nodeSize: (d) => {
+              const level = d._level || 0;
+              return level === 0 ? 60 : 45; // 与节点样式保持一致
+            }}
+          ],
+          behaviors: ['drag-element', 'drag-canvas', 'zoom-canvas', 'click-element'],
+          plugins: [toolbarOption, contextmenuOption, 'search-bar', 'detail-content']
+        });
+
+        await document.fonts.ready;
+        await graph.render();
+        setTimeout(() => {
+          graph.render();
+          document.getElementById('loading-status').style.display = 'none';
+        }, 16);
+        return graph;
+      };
+
+      const fetchJsonSafe = async (path) => {
+        try {
+          const res = await fetch(path, { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return await res.json();
+        } catch (e) { return null; }
+      };
+
+      let lastKnownModified = null;
+      let refreshInterval = null;
+
+      const loadAndRenderGraph = async () => {
+        // 优先尝试从Markdown解析API加载数据
+        let loadedGraphData = await fetchJsonSafe('http://localhost:3001/api/graph-data');
+        
+        // 如果API不可用，尝试静态JSON文件
+        if (!loadedGraphData) {
+          console.log('Markdown API不可用，尝试静态JSON文件');
+          const loadedNodes = await fetchJsonSafe('./data/nodes.json');
+          const loadedEdges = await fetchJsonSafe('./data/edges.json');
+          loadedGraphData = {
+            nodes: loadedNodes || defaultNodes,
+            edges: loadedEdges || defaultEdges
+          };
+        } else {
+          console.log('成功从Markdown解析API加载数据');
+          console.log('节点数:', loadedGraphData.nodes?.length, '边数:', loadedGraphData.edges?.length);
+        }
+
+        // 如果已有图实例，销毁后重建
+        if (graph) {
+          graph.destroy();
+        }
+        await buildGraph(loadedGraphData);
+      };
+
+      const checkForUpdates = async () => {
+        try {
+          const status = await fetchJsonSafe('http://localhost:3001/api/status');
+          if (status && status.lastModified && status.lastModified !== lastKnownModified) {
+            console.log('检测到datas.md文件变化，重新加载图谱');
+            lastKnownModified = status.lastModified;
+            await loadAndRenderGraph();
+          }
+        } catch (error) {
+          console.log('无法检查文件状态，API可能不可用');
+        }
+      };
+
+      // 防抖函数，避免窗口大小调整时频繁重新布局
+      const debounce = (func, wait) => {
+        let timeout;
+        return function executedFunction(...args) {
+          const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+          };
+          clearTimeout(timeout);
+          timeout = setTimeout(later, wait);
+        };
+      };
+
+      // 窗口大小变化时重新布局
+      const handleResize = debounce(async () => {
+        if (graph && graphData) {
+          console.log('窗口大小变化，重新计算布局');
+          const newParams = calculateLayoutParams();
+          console.log('新的布局参数:', newParams);
+          
+          // 销毁当前图谱并重新构建
+          graph.destroy();
+          await buildGraph(graphData);
+        }
+      }, 300);
+
+      const main = async () => {
+        await loadAndRenderGraph();
+        
+        // 添加窗口大小变化监听
+        window.addEventListener('resize', handleResize);
+        
+        // 启动定期检查文件变化
+        refreshInterval = setInterval(checkForUpdates, 2000);
+        
+        // 获取初始文件状态
+        try {
+          const status = await fetchJsonSafe('http://localhost:3001/api/status');
+          if (status && status.lastModified) {
+            lastKnownModified = status.lastModified;
+          }
+        } catch (error) {
+          console.log('无法获取初始文件状态');
+        }
+      };
+
+      main();
+    </script>
+  </body>
+</html>
+
+
